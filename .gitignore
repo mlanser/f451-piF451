@@ -1,0 +1,54 @@
+# -------------------------------------
+# Default
+# -------------------------------------
+__pycache__/
+/.pytest_cache/
+/.mypy_cache/
+/.coverage
+/.coverage.*
+/htmlcov/
+/.nox/
+/.python-version
+/.pytype/
+/dist/
+/docs/_build/
+/src/*.egg-info/
+.venv
+_OLD_/
+
+# -------------------------------------
+# IDE settings
+# -------------------------------------
+.vscode/
+.idea/
+.theia/
+*.code-workspace
+
+# -------------------------------------
+# Config files
+# -------------------------------------
+.env
+*.env
+.ini
+*.ini
+*.log
+
+# Common settings file across f451 Labs projects
+settings.toml
+
+# -------------------------------------
+# Misc Stuff
+# -------------------------------------
+.DS_Store
+*.tmp
+*.temp
+OLD-*.*
+_OLD_*.*
+_temp_*.*
+nuke*.*
+libs/*
+
+# -------------------------------------
+# Exceptions -- we want to track these files
+# -------------------------------------
+!pytest.ini

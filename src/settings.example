@@ -1,0 +1,20 @@
+# -- Adafruit IO --
+AIO_USERNAME = "<ADAFRUIT IO USERNAMR>"
+AIO_KEY = "<ADAFRUIT IO KEY>"
+
+# -- Adafruit IO Feeds --
+FEED_TEMPS = "<ADAFRUIT IO FEED KEY FOR TEMPERATURE DATA>"
+FEED_PRESS = "<ADAFRUIT IO FEED KEY FOR PRESSURE DATA>"
+FEED_HUMID = "<ADAFRUIT IO FEED KEY FOR HUMIDITY DATA>"
+
+# -- Misc. Application Defaults --
+ROTATION = 0    # Default rotation for Sense Hat 8x8 LED - [0, 90, 180, 270]
+DISPLAY = 4     # Default display [1, 2, 3, 4]
+DELAY = 59      # Delay in seconds between uploads to Adafruit IO. Smaller number -> more freq uploads -> higher data rate
+WAIT = 1        # Delay in seconds between sensor reads
+THROTTLE = 120  # Additional delay in seconds to be applied on 'ThottlingError'
+PROGRESS = "ON" # Show upload progress bar on LED
+SLEEP = 600     # Delay in seconds until screen is blanked - screen saver mode ;-)
+
+LOGLVL = "INFO" # Logging level (See: https://docs.python.org/3/library/logging.html#logging-levels)
+LOGFILE = "<FILE NAME>"
