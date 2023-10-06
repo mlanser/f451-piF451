@@ -275,7 +275,7 @@ EXIT_NOW = False                    # Global flag for immediate (graceful) exit
 EMPTY_Q = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 COLORS  = [const.RGB_BLUE, const.RGB_GREEN, const.RGB_YELLOW, const.RGB_RED]
 
-LOGLVL = "INFO"
+LOGLVL = "ERROR"
 LOGFILE = "f451-piF451.log"
 LOGNAME = "f451-piF451"
 
