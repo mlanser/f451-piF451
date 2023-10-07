@@ -19,6 +19,7 @@ import time
 import sys
 import asyncio
 import signal
+import random
 
 from collections import deque
 from random import randint
@@ -27,7 +28,7 @@ from pathlib import Path
 from Adafruit_IO import RequestError, ThrottlingError
 
 import constants as const
-from pired import Device
+from pif451 import Device
 from common import exit_now, EXIT_NOW
 
 try:
@@ -62,7 +63,7 @@ def debug_config_info(dev):
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-async def send_all_sensor_data(client, tempsData, pressData, humidData):
+async def send_all_sensor_data(client, data):
     """
     Send sensor data to Adafruit IO
 
@@ -83,9 +84,7 @@ async def send_all_sensor_data(client, tempsData, pressData, humidData):
             When exceeding Adafruit IO rate limit
     """
     await asyncio.gather(
-        client.send_sensor_data(tempsData),
-        client.send_sensor_data(pressData),
-        client.send_sensor_data(humidData)
+        client.send_sensor_data(data)
     )
 
 
@@ -108,18 +107,14 @@ if __name__ == '__main__':
         sys.exit("Invalid 'settings.toml' file")      
 
     # Initialize core data queues
-    tempsQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL) # Temperature queue
-    pressQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL) # Pressure queue
-    humidQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL) # Humidity queue
+    dataQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL)
 
     # Initialize device instance which includes the logger, 
     # SenseHat, and Adafruit IO client
     piF451 = Device(config, appDir)
 
     try:
-        tempsFeed = piF451.get_feed_info(const.KWD_FEED_TEMPS)
-        pressFeed = piF451.get_feed_info(const.KWD_FEED_PRESS)
-        humidFeed = piF451.get_feed_info(const.KWD_FEED_HUMID)
+        dataFeed = piF451.get_feed_info(const.KWD_FEED_DATA)
 
     except RequestError as e:
         piF451.log_error(f"Application terminated due to REQUEST ERROR: {e}")
@@ -139,23 +134,17 @@ if __name__ == '__main__':
     piF451.log_info("-- START Data Logging --")
     while not EXIT_NOW:
         # We check the sensors each time we loop through ...
-        tempC, press, humid = piF451.get_sensor_data()
+        data = random.randint(1, 100)
 
         # ... and add the data to the queues
-        tempsQ.append(tempC)
-        pressQ.append(press)
-        humidQ.append(humid)
+        dataQ.append(data)
 
         # Check 'sleepCounter' before we display anything
         if piF451.sleepCounter == 1:
             piF451.blank_LED()       # Need to blank screen once
         elif piF451.sleepCounter > 1:
-            if piF451.displMode == const.DISPL_TEMP:
-                piF451.update_LED(tempsQ, const.MIN_TEMP, const.MAX_TEMP)
-            elif piF451.displMode == const.DISPL_PRESS:    
-                piF451.update_LED(pressQ, const.MIN_PRESS, const.MAX_PRESS)
-            elif piF451.displMode == const.DISPL_HUMID:    
-                piF451.update_LED(humidQ, const.MIN_HUMID, const.MAX_HUMID)
+            if piF451.displMode == const.DISPL_DATA:    
+                piF451.update_LED(dataQ, 1, 100)
             elif piF451.displMode == const.DISPL_SPARKLE:    
                 piF451.sparkle_LED()
             else:    
@@ -175,9 +164,7 @@ if __name__ == '__main__':
             try:
                 asyncio.run(send_all_sensor_data(
                     piF451,
-                    {"data": tempC, "feed": tempsFeed},
-                    {"data": press, "feed": pressFeed},
-                    {"data": humid, "feed": humidFeed},
+                    {"data": data, "feed": dataFeed}
                 ))
 
             except RequestError as e:
@@ -191,7 +178,7 @@ if __name__ == '__main__':
             else:
                 # Reset 'maxDelay' back to normal 'ioDelay' on successful upload
                 maxDelay = ioDelay
-                piF451.log_info(f"Uploaded: TEMP: {tempC} - PRESS: {press} - HUMID: {humid}")
+                piF451.log_info(f"Uploaded: DATA: {data}")
 
             finally:
                 # Reset counter even on failure
