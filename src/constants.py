@@ -23,7 +23,7 @@ ROTATE_90 = 90          # Rotate 90 degrees
 
 DISPL_BLANK = 0         # Display `blank` screen
 DISPL_SPARKLE = 1       # Show random sparkles
-DISPL_DATA = 2          # Show humidity data
+DISPL_DWNLD = 2          # Show humidity data
 
 # -- SenseHat --
 MIN_TEMP = 0.0          # Min/max sense degrees in C
@@ -32,6 +32,10 @@ MIN_PRESS = 260.0       # Min/max sense pressure in hPa
 MAX_PRESS = 1260.0
 MIN_HUMID = 0.0         # Min/max sense humidity in %
 MAX_HUMID = 100.0
+
+# -- SpeedTest --
+MBITS_PER_SEC = 1048576   # 1 MB = 1024 * 1024
+MAX_SPEED_MB = 3000     # Max Download speed = 3 Gbps = 3,000 Mbps
 
 LED_MAX_COL = 8         # sense has an 8x8 LED display
 LED_MAX_ROW = 8
@@ -78,4 +82,11 @@ KWD_PROGRESS = "PROGRESS"
 KWD_SLEEP = "SLEEP"
 KWD_LOG_LEVEL = "LOGLVL"
 KWD_LOG_FILE = "LOGFILE"
-KWD_FEED_DATA = "FEED_DATA"
+
+KWD_FEED_DWNLD = "FEED_DWNLD"
+KWD_FEED_UPLD = "FEED_UPLD"
+KWD_FEED_PING = "FEED_PING"
+
+KWD_ST_DWNLD = "download"
+KWD_ST_UPLD = "upload"
+KWD_ST_PING = "ping"

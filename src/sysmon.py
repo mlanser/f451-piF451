@@ -16,6 +16,7 @@ the 'sysmon.out' file.
 """
 
 import time
+from datetime import datetime
 import sys
 import asyncio
 import signal
@@ -26,6 +27,7 @@ from random import randint
 from pathlib import Path
 
 from Adafruit_IO import RequestError, ThrottlingError
+import speedtest
 
 import constants as const
 from pif451 import Device
@@ -48,6 +50,10 @@ LOGLVL = "ERROR"
 LOGFILE = "f451-piF451.log"
 LOGNAME = "f451-piF451"
 
+
+# =========================================================
+#              H E L P E R   F U N C T I O N S
+# =========================================================
 def debug_config_info(dev):
     dev.log_debug("-- Config Settings --")
     dev.log_debug(f"DISPL ROT:   {dev.displRotation}")
@@ -60,10 +66,7 @@ def debug_config_info(dev):
     dev.log_debug(f"IO THROTTLE: {dev.get_config(const.KWD_THROTTLE, const.DEF_THROTTLE)}")
 
 
-# =========================================================
-#              H E L P E R   F U N C T I O N S
-# =========================================================
-async def send_all_sensor_data(client, data):
+async def send_all_speedtest_data(client, dwnldData, upldData, pingData):
     """
     Send sensor data to Adafruit IO
 
@@ -84,8 +87,28 @@ async def send_all_sensor_data(client, data):
             When exceeding Adafruit IO rate limit
     """
     await asyncio.gather(
-        client.send_sensor_data(data)
+        client.send_sensor_data(dwnldData),
+        client.send_sensor_data(upldData),
+        client.send_sensor_data(pingData)
     )
+
+
+def speed_test(client):
+    """Run actual speed test
+
+    Args:
+        client:
+            We need full app context client
+
+    Returns:
+        'dict' with all SpeedTest data
+    """
+    client.get_best_server()
+    client.download()
+    client.upload()
+    data = client.results.dict()
+
+    return data
 
 
 # =========================================================
@@ -107,14 +130,21 @@ if __name__ == '__main__':
         sys.exit("Invalid 'settings.toml' file")      
 
     # Initialize core data queues
-    dataQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL)
+    dwnldQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL)
+    upldQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL)
+    pingQ = deque(EMPTY_Q, maxlen=const.LED_MAX_COL)
 
     # Initialize device instance which includes the logger, 
     # SenseHat, and Adafruit IO client
     piF451 = Device(config, appDir)
 
+    # Initialize SpeedTest client
+    stClient = speedtest.Speedtest(secure=True)
+
     try:
-        dataFeed = piF451.get_feed_info(const.KWD_FEED_DATA)
+        dwnldFeed = piF451.get_feed_info(const.KWD_FEED_DWNLD)
+        upldFeed = piF451.get_feed_info(const.KWD_FEED_UPLD)
+        pingFeed = piF451.get_feed_info(const.KWD_FEED_PING)
 
     except RequestError as e:
         piF451.log_error(f"Application terminated due to REQUEST ERROR: {e}")
@@ -132,19 +162,14 @@ if __name__ == '__main__':
 
     debug_config_info(piF451)
     piF451.log_info("-- START Data Logging --")
+
     while not EXIT_NOW:
-        # We check the sensors each time we loop through ...
-        data = random.randint(1, 100)
-
-        # ... and add the data to the queues
-        dataQ.append(data)
-
         # Check 'sleepCounter' before we display anything
         if piF451.sleepCounter == 1:
             piF451.blank_LED()       # Need to blank screen once
         elif piF451.sleepCounter > 1:
-            if piF451.displMode == const.DISPL_DATA:    
-                piF451.update_LED(dataQ, 1, 100)
+            if piF451.displMode == const.DISPL_DWNLD:    
+                piF451.update_LED(dwnldQ, 0, const.MAX_SPEED_MB)
             elif piF451.displMode == const.DISPL_SPARKLE:    
                 piF451.sparkle_LED()
             else:    
@@ -157,14 +182,28 @@ if __name__ == '__main__':
         if piF451.sleepCounter > 0:    
             piF451.sleepCounter -= 1
 
-        # Is it time to upload data?
+        # Is it time to get new data and upload to Adafruit IO?
         if delayCounter < maxDelay:
-            delayCounter += 1       # We send data at set intervals
+            delayCounter += 1       # We only send data at set intervals
         else:
+            # Let's get some Speedtest data ...
+            speedData = speed_test(stClient)
+
+            dwnld = round(speedData[const.KWD_ST_DWNLD]/const.MBITS_PER_SEC, 1)
+            upld = round(speedData[const.KWD_ST_UPLD]/const.MBITS_PER_SEC, 1)
+            ping = speedData[const.KWD_ST_PING]
+
+            # ... and add the data to the queues
+            dwnldQ.append(dwnld)
+            upldQ.append(upld)
+            pingQ.append(ping)
+
             try:
-                asyncio.run(send_all_sensor_data(
+                asyncio.run(send_all_speedtest_data(
                     piF451,
-                    {"data": data, "feed": dataFeed}
+                    {"data": dwnld, "feed": dwnldFeed},
+                    {"data": upld, "feed": upldFeed},
+                    {"data": ping, "feed": pingFeed},
                 ))
 
             except RequestError as e:
@@ -178,7 +217,7 @@ if __name__ == '__main__':
             else:
                 # Reset 'maxDelay' back to normal 'ioDelay' on successful upload
                 maxDelay = ioDelay
-                piF451.log_info(f"Uploaded: DATA: {data}")
+                piF451.log_info(f"Down: {dwnld} Mbits/s - Up: {upld} Mbits/s - Ping: {ping} ms")
 
             finally:
                 # Reset counter even on failure

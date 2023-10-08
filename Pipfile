@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 adafruit-io = "*"
+speedtest-cli = "*"
+tomli = "*"
 
 [dev-packages]
 
