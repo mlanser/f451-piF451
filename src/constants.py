@@ -23,7 +23,9 @@ ROTATE_90 = 90          # Rotate 90 degrees
 
 DISPL_BLANK = 0         # Display `blank` screen
 DISPL_SPARKLE = 1       # Show random sparkles
-DISPL_DWNLD = 2          # Show humidity data
+DISPL_DWNLD = 2         # Show humidity data
+MIN_DISPL = DISPL_SPARKLE
+MAX_DISPL = DISPL_DWNLD
 
 # -- SenseHat --
 MIN_TEMP = 0.0          # Min/max sense degrees in C

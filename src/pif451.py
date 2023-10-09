@@ -125,7 +125,7 @@ class Device:
         Switch display mode by 1 mode and reset screen blanking
         """
         if event.action != ACTION_RELEASED:
-            self.displMode = 4 if self.displMode <= 1 else self.displMode - 1
+            self.displMode = const.MAX_DISPL if self.displMode <= const.MIN_DISPL else self.displMode - 1
             self.sleepCounter = self.displSleep 
 
     def _pushed_right(self, event):
@@ -134,7 +134,7 @@ class Device:
         Switch display mode by 1 mode and reset screen blanking
         """
         if event.action != ACTION_RELEASED:
-            self.displMode = 1 if self.displMode >= 4 else self.displMode + 1
+            self.displMode = const.MIN_DISPL if self.displMode >= const.MAX_DISPL else self.displMode + 1
             self.sleepCounter = self.displSleep 
 
     def _pushed_middle(self, event):
