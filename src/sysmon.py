@@ -166,17 +166,17 @@ if __name__ == '__main__':
     while not EXIT_NOW:
         # Check 'sleepCounter' before we display anything
         if piF451.sleepCounter == 1:
-            piF451.blank_LED()       # Need to blank screen once
+            piF451.display_blank()       # Need to blank screen once
         elif piF451.sleepCounter > 1:
             if piF451.displMode == const.DISPL_DWNLD:    
-                piF451.update_LED(dwnldQ, 0, const.MAX_SPEED_MB)
+                piF451.display_update(dwnldQ, 0, const.MAX_SPEED_MB)
             elif piF451.displMode == const.DISPL_SPARKLE:    
-                piF451.sparkle_LED()
+                piF451.display_sparkle()
             else:    
-                piF451.blank_LED()
+                piF451.display_blank()
 
             if piF451.displProgress:
-                piF451.update_LED_progress(delayCounter, maxDelay)    
+                piF451.display_progress(delayCounter, maxDelay)    
 
         # Update sleep counter for screen blanking as needed
         if piF451.sleepCounter > 0:    
@@ -228,4 +228,4 @@ if __name__ == '__main__':
 
     # A bit of clean-up before we exit
     piF451.log_info("-- END Data Logging --")
-    piF451.reset_LED()
+    piF451.display_reset()

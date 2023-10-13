@@ -139,3 +139,13 @@ def convert_to_bool(inVal):
         return (inVal.lower() in [const.STATUS_ON, const.STATUS_TRUE, const.STATUS_YES])
     else:
         return False
+
+
+def convert_c_to_f(inVal):
+    """Convert Celsius to Fahrenheit"""
+    return (inVal * 9 / 5) + 32.0
+
+
+def convert_c_to_k(inVal):
+    """Convert Celsius to Kelvin"""
+    return float(inVal) + 273.15

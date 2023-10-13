@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 try:
     from sense_hat import SenseHat, ACTION_PRESSED, ACTION_HELD, ACTION_RELEASED
 except ImportError:
-    from mocks.fake_hat import FakeHat as SenseHat, ACTION_PRESSED, ACTION_HELD, ACTION_RELEASED
+    from mocks.fake_device import FakeHat as SenseHat, ACTION_PRESSED, ACTION_HELD, ACTION_RELEASED
 
 
 # =========================================================
@@ -210,16 +210,16 @@ class Device:
             """Wrapper of Logger.debug()"""
             self.logger.debug(msg)
 
-    def blank_LED(self):
+    def display_blank(self):
         """Show clear/blank LED"""
         self.sense.clear()
         
-    def reset_LED(self):
+    def display_reset(self):
         """Reset and clear LED"""
         self.sense.clear()
         self.sense.low_light = False
 
-    def sparkle_LED(self):
+    def display_sparkle(self):
         """Show random sparkles on LED"""
         x = randint(0, 7)
         y = randint(0, 7)
@@ -234,7 +234,7 @@ class Device:
         else:    
             self.sense.clear()
 
-    def update_LED(self, data, inMin, inMax):
+    def display_update(self, data, inMin, inMax):
         """
         Update all pixels on SenseHat 8x8 LED with new color values
 
@@ -253,7 +253,7 @@ class Device:
         # self.sense.set_rotation(self.displRotation)
         self.sense.set_pixels(pixels)
     
-    def update_LED_progress(self, inVal, maxVal=100):
+    def display_progress(self, inVal, maxVal=100):
         """Update progressbar on bottom row of LED
 
         Args:
