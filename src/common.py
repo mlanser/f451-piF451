@@ -5,6 +5,7 @@ most/all applications designed for the f451 Labs piF451 device.
 """
 
 import sys
+from subprocess import check_output
 import constants as const
 
 
@@ -25,6 +26,14 @@ def exit_now(self, *args):
     """
     global EXIT_NOW
     EXIT_NOW = True
+
+
+def check_wifi():
+    """Check for Wi-Fi connection
+
+    Based on code from Enviro+ example 'luftdaten_combined.py'
+    """
+    return True if check_output(['hostname', '-I']) else False
 
 
 def get_setting(settings, key, default=None):

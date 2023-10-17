@@ -1,20 +1,30 @@
-# -- Adafruit IO --
+# =========================================================
+#                S E T T I N G S . T O M L
+# ---------------------------------------------------------
+# Please see README.md for instructions on how to use 
+# these settings and their effects
+# =========================================================
+
+# -- Adafruit IO ------------------------------------------
 AIO_USERNAME = "<ADAFRUIT IO USERNAMR>"
 AIO_KEY = "<ADAFRUIT IO KEY>"
+AIO_UPLOAD = "yes"      # [yes|no] - upload to Adafruit IO
 
-# -- Adafruit IO Feeds --
-FEED_DWNLD = "<ADAFRUIT IO FEED KEY FOR DOWNLOAD SPEED DATA FEED>"
-FEED_UPLD = "<ADAFRUIT IO FEED KEY FOR UPLOAD SPEED DATA FEED>"
-FEED_PING = "<ADAFRUIT IO FEED KEY FOR PING SPEED DATA FEED>"
+FEED_TEMPS = "f451-dev.temperature"
+FEED_PRESS = "f451-dev.pressure"
+FEED_HUMID = "f451-dev.humidity"
 
-# -- Misc. Application Defaults --
-ROTATION = 0    # Default rotation for Sense Hat 8x8 LED - [0, 90, 180, 270]
-DISPLAY = 4     # Default display [1, 2, 3, 4]
-DELAY = 299     # Delay in seconds between speed tests and uploads to Adafruit IO.
-WAIT = 1        # Delay in seconds between LED screen updates
-THROTTLE = 120  # Additional delay in seconds to be applied on 'ThottlingError'
-PROGRESS = "ON" # Show upload progress bar on LED
-SLEEP = 900     # Delay in seconds until screen is blanked - screen saver mode ;-)
+# -- Misc. Settings for Data Management -------------------
+UNIT_TEMPS = "C"        # [C|F|K]
 
-LOGLVL = "INFO" # Logging level (See: https://docs.python.org/3/library/logging.html#logging-levels)
+# -- Misc. Application Defaults ---------------------------
+ROTATION = 0            # Default rotation for Sense Hat 8x8 LED - [0, 90, 180, 270]
+DISPLAY = 4             # [1|2|3|4] - default display mode
+DELAY = 59              # Delay in seconds between uploads to Adafruit IO
+WAIT = 1                # Delay in seconds between sensor reads
+THROTTLE = 120          # Additional delay in seconds on 'ThottlingError'
+PROGRESS = "on"         # [on|off] - show upload progress bar on 8x8 LED
+SLEEP = 600             # Delay in seconds until screen is blanked
+
+LOGLVL = "error"        # [debug|info|error] - logging level
 LOGFILE = "<FILE NAME>"
