@@ -13,7 +13,7 @@ __pycache__/
 /dist/
 /docs/_build/
 /src/*.egg-info/
-.venv
+.venv/
 _OLD_/
 
 # -------------------------------------
