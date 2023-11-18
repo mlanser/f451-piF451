@@ -40,12 +40,6 @@ class Device:
             appDir:
                 Path object for app parent folder
         """
-        self.config = config
-        self.aio = Client(                                  # Adafruit Client
-            get_setting(config, const.KWD_AIO_USER, ""), 
-            get_setting(config, const.KWD_AIO_KEY, "")
-        )
-        self.logger = self._init_logger(config, appDir)     # Logger
         self.sense = self._init_SenseHat(config)            # SenseHat
 
         self.displRotation = get_setting(config, const.KWD_ROTATION, const.DEF_ROTATION)
