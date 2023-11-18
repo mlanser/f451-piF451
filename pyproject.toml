@@ -1,0 +1,57 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "f451-pif451"
+description = "f451 Labs applications for piF451 device"
+readme = "README.md"
+authors = [{name = "Martin Lanser", email = "martinlanser@gmail.com"}]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3"
+]
+keywords = ["f451"]
+dependencies = [
+    "f451-common",
+    "f451-logger",
+    "f451-uploader",
+    "f451-sensehat",
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "black", 
+    "bumpver", 
+    "isort", 
+    "pip-tools", 
+    "pytest",
+    "pytest-random"
+]
+
+[project.urls]
+Homepage = "https://github.com/mlanser/f451-pired"
+
+[project.scripts]
+sysmon = "f451_pif451.sysmon:main"
+
+[tool.bumpver]
+current_version = "0.0.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+tag_message = "{new_version}"
+tag_scope = "default"
+pre_commit_hook = ""
+post_commit_hook = ""
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"']
+"f451_pired/__init__.py" = ['__version__ = "{version}"']
+"README.md" = ['v{version}$']
