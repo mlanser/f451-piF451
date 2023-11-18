@@ -15,6 +15,7 @@ classifiers = [
 ]
 keywords = ["f451"]
 dependencies = [
+    "speedtest-cli",
     "f451-common",
     "f451-logger",
     "f451-uploader",
@@ -53,5 +54,5 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = ['current_version = "{version}"']
-"f451_pired/__init__.py" = ['__version__ = "{version}"']
+"f451_pif451/__init__.py" = ['__version__ = "{version}"']
 "README.md" = ['v{version}$']

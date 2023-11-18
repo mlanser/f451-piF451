@@ -53,3 +53,10 @@ It is recommended to copy the '*settings.example*' to '*settings.toml*' and then
     - *Logging levels (see: [Python docs](https://docs.python.org/3/library/logging.html#logging-levels) for more info)*
 
 - **LOGFILE**: 'string' - path and file name for log file
+
+## Dependencies
+
+The following special libraries are required:
+
+- [adafruit-io](https://pypi.org/project/adafruit-io/) - only install if you have physical Sense HAT
+- [speedtest-cli](https://pypi.org/project/speedtest-cli/) - only used for internet speed tests 
