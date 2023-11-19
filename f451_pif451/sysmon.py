@@ -41,13 +41,13 @@ from datetime import datetime
 from collections import deque
 
 from . import constants as const
+from . import system_data as f451SystemData
 
 import f451_common.common as f451Common
 import f451_logger.logger as f451Logger
 import f451_uploader.uploader as f451Uploader
 
 import f451_sensehat.sensehat as f451SenseHat
-import f451_sensehat.sensehat_data as f451SenseData
 
 from Adafruit_IO import RequestError, ThrottlingError
 import speedtest
@@ -61,6 +61,8 @@ APP_NAME = "f451 piF451 - SysMon"
 APP_LOG = "f451-pif451-sysmon.log"      # Individual logs for devices with multiple apps
 APP_SETTINGS = "settings.toml"          # Standard for all f451 Labs projects
 APP_DIR = Path(__file__).parent         # Find dir for this app
+
+APP_MIN_SPEEDTEST_WAIT = 60             # Minimum wait in sec bettween speed test checks 
 
 APP_DISPLAY_MODES = {
     f451SenseHat.KWD_DISPLAY_MIN: const.MAX_DISPL, 
@@ -208,15 +210,15 @@ async def upload_speedtest_data(*args, **kwargs):
 
     sendQ = []
 
-    # Send temperature data ?
+    # Send download speed data ?
     if data.get(const.KWD_DATA_DWNLD, None) is not None:
         sendQ.append(UPLOADER.aio_send_data(FEED_DWNLD.key, data.get(const.KWD_DATA_DWNLD)))
 
-    # Send barometric pressure data ?
+    # Send upload speed data ?
     if data.get(const.KWD_DATA_UPLD, None) is not None:
         sendQ.append(UPLOADER.aio_send_data(FEED_UPLD.key, data.get(const.KWD_DATA_UPLD)))
 
-    # Send humidity data ?
+    # Send ping response data ?
     if data.get(const.KWD_DATA_PING, None) is not None:
         sendQ.append(UPLOADER.aio_send_data(FEED_PING.key, data.get(const.KWD_DATA_PING)))
 
@@ -365,13 +367,13 @@ def main(cliArgs=None):
     # Get core settings
     ioFreq = CONFIG.get(const.KWD_FREQ, const.DEF_FREQ)
     ioDelay = CONFIG.get(const.KWD_DELAY, const.DEF_DELAY)
-    ioWait = CONFIG.get(const.KWD_WAIT, const.DEF_WAIT)
+    ioWait = max(CONFIG.get(const.KWD_WAIT, const.DEF_WAIT), APP_MIN_SPEEDTEST_WAIT)
     ioThrottle = CONFIG.get(const.KWD_THROTTLE, const.DEF_THROTTLE)
     ioRounding = CONFIG.get(const.KWD_ROUNDING, const.DEF_ROUNDING)
     ioUploadAndExit = cliArgs.cron
 
     # Initialize core data queues and SpeedTest client
-    senseData = f451SenseData.SenseData(1, SENSE_HAT.widthLED)
+    systemData = f451SystemData.SystemData(1, SENSE_HAT.widthLED)
     stClient = speedtest.Speedtest(secure=True)
 
     # Update log file or level?
@@ -405,14 +407,9 @@ def main(cliArgs=None):
             # Let's get some Speedtest data ...
             speedData = get_speed_test_data(stClient)
 
-            dwnld = round(speedData[const.KWD_ST_DWNLD]/const.MBITS_PER_SEC, 1)
-            upld = round(speedData[const.KWD_ST_UPLD]/const.MBITS_PER_SEC, 1)
-            ping = speedData[const.KWD_ST_PING]
-
-            # ... and add the data to the queues
-            dwnldQ.append(dwnld)
-            upldQ.append(upld)
-            pingQ.append(ping)
+            dwnld = round(speedData[const.KWD_DATA_DWNLD]/const.MBITS_PER_SEC, 1)
+            upld = round(speedData[const.KWD_DATA_UPLD]/const.MBITS_PER_SEC, 1)
+            ping = speedData[const.KWD_DATA_PING]
 
             # Is it time to upload data?
             if timeSinceUpdate >= uploadDelay:
@@ -437,7 +434,7 @@ def main(cliArgs=None):
                     numUploads += 1
                     uploadDelay = ioFreq
                     exitNow = (exitNow or ioUploadAndExit)
-                    LOGGER.log_info(f"Uploaded: DWNLD: {round(dwnld, ioRounding)} - PRESS: {round(upld, ioRounding)} - HUMID: {round(ping, ioRounding)}")
+                    LOGGER.log_info(f"Uploaded: DWNLD: {round(dwnld, ioRounding)} - UPLD: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
 
                 finally:
                     timeUpdate = timeCurrent
@@ -445,16 +442,16 @@ def main(cliArgs=None):
 
             # Check display mode. Each mode corresponds to a data type
             if SENSE_HAT.displMode == const.DISPL_DWNLD:           # type = "temperature"
-                senseData.temperature.data.append(dwnld)
-                SENSE_HAT.display_as_graph(senseData.temperature.as_dict())
+                systemData.download.data.append(dwnld)
+                SENSE_HAT.display_as_graph(systemData.download.as_dict())
 
             elif SENSE_HAT.displMode == const.DISPL_UPLD:        # type = "pressure"
-                senseData.pressure.data.append(upld)
-                SENSE_HAT.display_as_graph(senseData.pressure.as_dict())
+                systemData.upload.data.append(upld)
+                SENSE_HAT.display_as_graph(systemData.upload.as_dict())
 
             elif SENSE_HAT.displMode == const.DISPL_PING:        # type = "humidity"
-                senseData.humidity.data.append(ping)
-                SENSE_HAT.display_as_graph(senseData.humidity.as_dict())
+                systemData.ping.data.append(ping)
+                SENSE_HAT.display_as_graph(systemData.ping.as_dict())
                     
             else:                                               # Display sparkles
                 SENSE_HAT.display_sparkle()
@@ -488,51 +485,5 @@ def main(cliArgs=None):
 # =========================================================
 #            G L O B A L   C A T C H - A L L
 # =========================================================
-if __name__ == '__main__':
-        # Is it time to get new data and upload to Adafruit IO?
-        if delayCounter < maxDelay:
-            delayCounter += 1       # We only send data at set intervals
-        else:
-            # Let's get some Speedtest data ...
-            speedData = speed_test(stClient)
-
-            dwnld = round(speedData[const.KWD_ST_DWNLD]/const.MBITS_PER_SEC, 1)
-            upld = round(speedData[const.KWD_ST_UPLD]/const.MBITS_PER_SEC, 1)
-            ping = speedData[const.KWD_ST_PING]
-
-            # ... and add the data to the queues
-            dwnldQ.append(dwnld)
-            upldQ.append(upld)
-            pingQ.append(ping)
-
-            try:
-                asyncio.run(send_all_speedtest_data(
-                    piF451,
-                    {"data": dwnld, "feed": dwnldFeed},
-                    {"data": upld, "feed": upldFeed},
-                    {"data": ping, "feed": pingFeed},
-                ))
-
-            except RequestError as e:
-                piF451.log_error(f"Application terminated due to REQUEST ERROR: {e}")
-                raise
-
-            except ThrottlingError as e:
-                # Keep increasing 'maxDelay' each time we get a 'ThrottlingError'
-                maxDelay += ioThrottle
-                
-            else:
-                # Reset 'maxDelay' back to normal 'ioDelay' on successful upload
-                maxDelay = ioDelay
-                piF451.log_info(f"Down: {dwnld} Mbits/s - Up: {upld} Mbits/s - Ping: {ping} ms")
-
-            finally:
-                # Reset counter even on failure
-                delayCounter = 1
-
-        # Let's rest a bit before we go through the loop again
-        time.sleep(ioWait)
-
-    # A bit of clean-up before we exit
-    piF451.log_info("-- END Data Logging --")
-    piF451.display_reset()
+if __name__ == "__main__":
+    main()  # pragma: no cover

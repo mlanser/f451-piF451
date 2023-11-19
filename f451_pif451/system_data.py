@@ -48,15 +48,12 @@ class SystemData:
     code in general leads to ANY DAMAGES or DEATH.
 
     Attributes:
-        temperature:    temperature in C
-        pressure:       barometric pressure in hPa
-        humidity:       humidity in %
-        light:          illumination in Lux
+        download:       download speed in MB/sec
+        upload:         upload speed in MB/sec
+        ping:           ping response time in ms
 
     Methods:
         as_list: returns a 'list' with data from each attribute as 'dict'
-        convert_C2F: static (wrapper) method. Converts Celsius to Fahrenheit 
-        convert_C2K: static (wrapper) method. Converts Celsius to Kelvin 
     """
     def __init__(self, defVal, maxLen):
         """Initialize data structurte.
@@ -68,35 +65,28 @@ class SystemData:
         Returns:
             'dict' - holds entiure data structure
         """
-        self.pressure = f451SenseData.SenseObject(
+        self.download = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            "hPa",
-            [250, 650, 1013.25, 1015],
-            "Pressure"
+            "MB/s",
+            [0, 0, 0, 0],
+            "Download"
         )
-        self.humidity = f451SenseData.SenseObject(
+        self.upload = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            "%",
-            [20, 30, 60, 70],
-            "Humidity"
+            "MB/s",
+            [0, 0, 0, 0],
+            "Upload"
         )
-        self.light = f451SenseData.SenseObject(
+        self.ping = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            "Lux",
-            [-1, -1, 30000, 100000],
-            "Light"
+            "ms",
+            [0, 0, 0, 0],
+            "Ping"
         )
 
-    def as_list(self, tempUnit=TEMP_UNIT_C):
+    def as_list(self):
         return [
-            self.temperature.as_dict(tempUnit),
-            self.pressure.as_dict(),
-            self.humidity.as_dict(),
-            self.light.as_dict(),
+            self.download.as_dict(),
+            self.upload.as_dict(),
+            self.ping.as_dict(),
         ]
-    
-    def convert_C2F(self, celsius):
-        return self.temperature._convert_C2F(celsius)
-
-    def convert_C2K(self, celsius):
-        return self.temperature._convert_C2K(celsius)

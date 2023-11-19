@@ -51,3 +51,7 @@ DISPL_PING  = DISPL_HUMID = 3   # Display ping or humidity
 
 MIN_DISPL = DISPL_SPARKLE       # Cannot be smaller than smallest DISPL_xx value     
 MAX_DISPL = 3                   # Cannot be larger than largest DISPL_xx value 
+
+# -- SpeedTest --
+MBITS_PER_SEC = 1048576         # 1 MB = 1024 * 1024
+MAX_SPEED_MB = 3000             # Max Download speed = 3 Gbps = 3,000 Mbps
