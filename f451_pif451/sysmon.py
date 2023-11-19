@@ -24,7 +24,7 @@ NOTE: This application is designed to display data on the Raspberry Pi Sense HAT
       a screen-saver mode, support for 'settings.toml', and more.
 
 Dependencies:
-    - adafruit-io - only install if you have physical Sense HAT
+    - adafruit-io - only install if you have an account with Adafruit IO
     - speedtest-cli - used for internet speed tests 
 """
 
