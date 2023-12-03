@@ -56,4 +56,5 @@ push = false
 [tool.bumpver.file_patterns]
 "pyproject.toml" = ['current_version = "{version}"']
 "f451_pif451/__init__.py" = ['__version__ = "{version}"']
+"f451_pif451/sysmon.py" = ['APP_VERSION = "{version}"']
 "README.md" = ['v{version}$']
