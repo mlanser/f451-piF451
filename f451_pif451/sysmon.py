@@ -25,7 +25,8 @@ NOTE: This application is designed to display data on the Raspberry Pi Sense HAT
 
 Dependencies:
     - adafruit-io - only install if you have an account with Adafruit IO
-    - speedtest-cli - used for internet speed tests 
+    - speedtest-cli - used for internet speed tests
+    - pyfiglet - used to print nice logo :-)
 """
 
 import argparse
@@ -49,6 +50,7 @@ import f451_cloud.cloud as f451Cloud
 
 import f451_sensehat.sensehat as f451SenseHat
 
+from pyfiglet import Figlet
 from Adafruit_IO import RequestError, ThrottlingError
 import speedtest
 
@@ -57,7 +59,8 @@ import speedtest
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
 APP_VERSION = "0.0.1"
-APP_NAME = "f451 piF451 - SysMon"
+APP_NAME = "f451 Labs piF451 - SysMon"
+APP_NAME_SHORT = "SysMon"
 APP_LOG = "f451-pif451-sysmon.log"      # Individual logs for devices with multiple apps
 APP_SETTINGS = "settings.toml"          # Standard for all f451 Labs projects
 APP_DIR = Path(__file__).parent         # Find dir for this app
@@ -179,6 +182,13 @@ def init_cli_parser():
         type=int,
         default=-1,
         help="number of uploads before exiting",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="show output to CLI stdout",
     )
 
     return parser
@@ -392,7 +402,13 @@ def main(cliArgs=None):
     numUploads = 0
     exitNow = False
 
-    debug_config_info(cliArgs)
+    # Display LOGO :-)
+    logoFont = Figlet(font='slant')
+    print(logoFont.renderText(APP_NAME_SHORT))
+
+    if cliArgs.debug:
+        debug_config_info(cliArgs)
+
     LOGGER.log_info("-- START Data Logging --")
 
     try:
@@ -457,7 +473,7 @@ def main(cliArgs=None):
                 SENSE_HAT.display_sparkle()
 
             # Let's rest a bit before we go through the loop again
-            if cliArgs.debug and not ioUploadAndExit:
+            if (cliArgs.debug or cliArgs.verbose) and not ioUploadAndExit:
                 sys.stdout.write(f"Time to next update: {uploadDelay - int(timeSinceUpdate)} sec \r")
                 sys.stdout.flush()
 

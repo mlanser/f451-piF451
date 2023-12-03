@@ -16,6 +16,7 @@ classifiers = [
 keywords = ["f451"]
 dependencies = [
     "speedtest-cli",
+    "pyfiglet",
     "f451-common",
     "f451-logger",
     "f451-cloud",
