@@ -34,12 +34,8 @@ import time
 import sys
 import asyncio
 
-# import random
-# from random import randint
-
 from pathlib import Path
 from datetime import datetime
-from collections import deque
 
 from . import constants as const
 from . import system_data as f451SystemData
@@ -50,10 +46,8 @@ import f451_cloud.cloud as f451Cloud
 
 import f451_sensehat.sensehat as f451SenseHat
 
-from pyfiglet import Figlet
-
 from rich.console import Console
-from rich.progress import track, Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
 
 from Adafruit_IO import RequestError, ThrottlingError
 import speedtest
@@ -118,50 +112,6 @@ def init_progressbar(refreshRate=2):
         transient=True,
         refresh_per_second=refreshRate
     )
-
-
-def make_logo(maxWidth, appName, appVer, default=None, center=True):
-    """Create a fancy logo using pyFiglet
-
-    This will create a fancy multi-line ASCII-ized logo
-    using pyFiglet library and 'slant' font. We'll also
-    add in the version number on the last row, and we'll
-    center the logo if theres enough space.
-
-    If there is not enough space for  abig logo, then we
-    can return a default string instead.
-
-    Args:
-        maxWidth:
-            'int' max length of any row in the logo (usually console width)
-        appName:
-            'str' application name to use for logo
-        appVer:
-            'str' application version number. We'll prefix it with a 'v'
-        default:
-            'str' default string if space is too tight
-        center:
-            'bool' if True, then we'll 'center' logo lines within available space
-
-    Returns:
-        'str' with logo. A multiline-logo will have '\n' embedded                    
-    """
-    logoFont = Figlet(font='slant')
-    logoStrRaw = logoFont.renderText(appName)
-    logoStrArr = logoStrRaw.splitlines()
-    logoLen = max([len(s) for s in logoStrArr])
-
-    result = default
-
-    if logoLen < maxWidth:
-        verStr = 'v' + appVer
-        lastCharPos = logoStrArr[-2].rfind('/')
-        deltaStrLen = len(logoStrArr[-2]) - lastCharPos if lastCharPos >= 0 else len(logoStrArr[-2]) - len(verStr)
-        logoStrArr[-1] = logoStrArr[-1][:-(len(verStr) + deltaStrLen)] + verStr + (' ' * deltaStrLen)
-        newLogo = [s.center(maxWidth, ' ') for s in logoStrArr] if center else logoStrArr
-        result = "\n".join(newLogo)
-
-    return result
 
 
 def debug_config_info(cliArgs, console=None):
@@ -430,11 +380,11 @@ def main(cliArgs=None):
         sys.exit(0)
 
     # Display LOGO :-)
-    conWidth, conHeight = console.size
-    print(make_logo(
+    conWidth, _ = console.size
+    print(f451Common.make_logo(
             conWidth, 
             APP_NAME_SHORT, 
-            APP_VERSION, 
+            f"v{APP_VERSION}", 
             f"{APP_NAME} (v{APP_VERSION})"
         )
     )
@@ -471,6 +421,9 @@ def main(cliArgs=None):
     if cliArgs.log is not None:
         LOGGER.set_log_file(logLvl, cliArgs.log)
 
+    if debugMode:
+        debug_config_info(cliArgs, console)
+
     # -- Main application loop --
     timeSinceUpdate = 0
     timeUpdate = time.time()
@@ -480,10 +433,12 @@ def main(cliArgs=None):
     numUploads = 0
     exitNow = False
 
-    if debugMode:
-        debug_config_info(cliArgs, console)
-
+    # Let user know that magic is about to happen ;-)
     console.rule(style="grey", align="center")
+    print(f"{APP_NAME} (v{APP_VERSION})")
+    print(f"Work start:  {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
+
+    # If log level <= INFO
     LOGGER.log_info("-- START Data Logging --")
 
     try:
@@ -496,7 +451,7 @@ def main(cliArgs=None):
             )
 
             # Let's get some Speedtest data ...
-            with console.status("Get SpeedTest data ..."):
+            with console.status("Running speed test ..."):
                 speedData = get_speed_test_data(stClient)
 
             dwnld = round(speedData[const.KWD_DATA_DWNLD]/const.MBITS_PER_SEC, 1)
@@ -561,17 +516,16 @@ def main(cliArgs=None):
     except KeyboardInterrupt:
         exitNow = True
 
-    # A bit of clean-up before we exit
+    # If log level <= INFO
     LOGGER.log_info("-- END Data Logging --")
+
+    # A bit of clean-up before we exit ...
     SENSE_HAT.display_reset()
     SENSE_HAT.display_off()
     
-    now = datetime.now()
-    console.rule("Summary", style="grey", align="center")
-    console.print(f"{APP_NAME} (v{APP_VERSION})")
-    console.print(f"Num uploads: {numUploads}")
-    console.print(f"Date:        {now:%a %b %-d, %Y}")
-    console.print(f"Time:        {now:%-I:%M:%S %p}")
+    # ... and display summary info
+    print(f"Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
+    print(f"Num uploads: {numUploads}")
     console.rule(style="grey", align="center")
 
 
