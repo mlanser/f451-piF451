@@ -51,6 +51,10 @@ import f451_cloud.cloud as f451Cloud
 import f451_sensehat.sensehat as f451SenseHat
 
 from pyfiglet import Figlet
+
+from rich.console import Console
+from rich.progress import track, Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+
 from Adafruit_IO import RequestError, ThrottlingError
 import speedtest
 
@@ -105,10 +109,69 @@ displayUpdate = timeUpdate
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-def debug_config_info(cliArgs):
+def init_progressbar(refreshRate=2):
+    """Initialize new progress bar."""
+    return Progress(                     
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        transient=True,
+        refresh_per_second=refreshRate
+    )
+
+
+def make_logo(maxWidth, appName, appVer, default=None, center=True):
+    """Create a fancy logo using pyFiglet
+
+    This will create a fancy multi-line ASCII-ized logo
+    using pyFiglet library and 'slant' font. We'll also
+    add in the version number on the last row, and we'll
+    center the logo if theres enough space.
+
+    If there is not enough space for  abig logo, then we
+    can return a default string instead.
+
+    Args:
+        maxWidth:
+            'int' max length of any row in the logo (usually console width)
+        appName:
+            'str' application name to use for logo
+        appVer:
+            'str' application version number. We'll prefix it with a 'v'
+        default:
+            'str' default string if space is too tight
+        center:
+            'bool' if True, then we'll 'center' logo lines within available space
+
+    Returns:
+        'str' with logo. A multiline-logo will have '\n' embedded                    
+    """
+    logoFont = Figlet(font='slant')
+    logoStrRaw = logoFont.renderText(appName)
+    logoStrArr = logoStrRaw.splitlines()
+    logoLen = max([len(s) for s in logoStrArr])
+
+    result = default
+
+    if logoLen < maxWidth:
+        verStr = 'v' + appVer
+        lastCharPos = logoStrArr[-2].rfind('/')
+        deltaStrLen = len(logoStrArr[-2]) - lastCharPos if lastCharPos >= 0 else len(logoStrArr[-2]) - len(verStr)
+        logoStrArr[-1] = logoStrArr[-1][:-(len(verStr) + deltaStrLen)] + verStr + (' ' * deltaStrLen)
+        newLogo = [s.center(maxWidth, ' ') for s in logoStrArr] if center else logoStrArr
+        result = "\n".join(newLogo)
+
+    return result
+
+
+def debug_config_info(cliArgs, console=None):
     """Print/log some basic debug info."""
 
-    LOGGER.log_debug("-- Config Settings --")
+    if console:
+        console.rule("Config Settings", style="grey", align="center")
+    else:    
+        LOGGER.log_debug("-- Config Settings --")
+
     LOGGER.log_debug(f"DISPL ROT:   {SENSE_HAT.displRotation}")
     LOGGER.log_debug(f"DISPL MODE:  {SENSE_HAT.displMode}")
     LOGGER.log_debug(f"DISPL PROGR: {SENSE_HAT.displProgress}")
@@ -124,7 +187,6 @@ def debug_config_info(cliArgs):
 
     # Display CLI args
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
-    LOGGER.log_debug("-- // --\n")
 
 
 def init_cli_parser():
@@ -138,7 +200,7 @@ def init_cli_parser():
     """
     parser = argparse.ArgumentParser(
         prog=APP_NAME,
-        description=f"{APP_NAME} [v{APP_VERSION}] - read sensor data from Enviro+ HAT and upload to Adafruit IO and/or Arduino Cloud.",
+        description=f"{APP_NAME} [v{APP_VERSION}] - collect internet speed test data using Speedtest CLI, and upload to Adafruit IO and/or Arduino Cloud.",
         epilog="NOTE: This application requires active accounts with corresponding cloud services.",
     )
 
@@ -355,6 +417,7 @@ def main(cliArgs=None):
     global displayUpdate
 
     cli = init_cli_parser()
+    console = Console()
 
     # Show 'help' and exit if no args
     cliArgs, unknown = cli.parse_known_args(cliArgs)
@@ -365,6 +428,16 @@ def main(cliArgs=None):
     if cliArgs.version:
         print(f"{APP_NAME} (v{APP_VERSION})")
         sys.exit(0)
+
+    # Display LOGO :-)
+    conWidth, conHeight = console.size
+    print(make_logo(
+            conWidth, 
+            APP_NAME_SHORT, 
+            APP_VERSION, 
+            f"{APP_NAME} (v{APP_VERSION})"
+        )
+    )
 
     # Initialize Sense HAT joystick and LED display
     SENSE_HAT.joystick_init(**APP_JOYSTICK_ACTIONS)
@@ -382,16 +455,21 @@ def main(cliArgs=None):
     ioRounding = CONFIG.get(const.KWD_ROUNDING, const.DEF_ROUNDING)
     ioUploadAndExit = cliArgs.cron
 
+    logLvl = CONFIG.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
+    debugMode = (logLvl == f451Logger.LOG_DEBUG)
+
     # Initialize core data queues and SpeedTest client
     systemData = f451SystemData.SystemData(1, SENSE_HAT.widthLED)
     stClient = speedtest.Speedtest(secure=True)
 
     # Update log file or level?
-    if cliArgs.log is not None:
-        LOGGER.set_log_file(CONFIG.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET), cliArgs.log)
-
     if cliArgs.debug:
         LOGGER.set_log_level(f451Logger.LOG_DEBUG)
+        logLvl = f451Logger.LOG_DEBUG
+        debugMode = True
+
+    if cliArgs.log is not None:
+        LOGGER.set_log_file(logLvl, cliArgs.log)
 
     # -- Main application loop --
     timeSinceUpdate = 0
@@ -402,13 +480,10 @@ def main(cliArgs=None):
     numUploads = 0
     exitNow = False
 
-    # Display LOGO :-)
-    logoFont = Figlet(font='slant')
-    print(logoFont.renderText(APP_NAME_SHORT))
+    if debugMode:
+        debug_config_info(cliArgs, console)
 
-    if cliArgs.debug:
-        debug_config_info(cliArgs)
-
+    console.rule(style="grey", align="center")
     LOGGER.log_info("-- START Data Logging --")
 
     try:
@@ -421,7 +496,8 @@ def main(cliArgs=None):
             )
 
             # Let's get some Speedtest data ...
-            speedData = get_speed_test_data(stClient)
+            with console.status("Get SpeedTest data ..."):
+                speedData = get_speed_test_data(stClient)
 
             dwnld = round(speedData[const.KWD_DATA_DWNLD]/const.MBITS_PER_SEC, 1)
             upld = round(speedData[const.KWD_DATA_UPLD]/const.MBITS_PER_SEC, 1)
@@ -450,37 +526,37 @@ def main(cliArgs=None):
                     numUploads += 1
                     uploadDelay = ioFreq
                     exitNow = (exitNow or ioUploadAndExit)
-                    LOGGER.log_info(f"Uploaded: DWNLD: {round(dwnld, ioRounding)} - UPLD: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
+                    LOGGER.log_info(f"Uploaded: DWN: {round(dwnld, ioRounding)} - UP: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
 
                 finally:
                     timeUpdate = timeCurrent
                     exitNow = ((maxUploads > 0) and (numUploads >= maxUploads))
 
             # Check display mode. Each mode corresponds to a data type
-            if SENSE_HAT.displMode == const.DISPL_DWNLD:           # type = "temperature"
+            if SENSE_HAT.displMode == const.DISPL_DWNLD:        # type = "download"
                 systemData.download.data.append(dwnld)
                 SENSE_HAT.display_as_graph(systemData.download.as_dict())
 
-            elif SENSE_HAT.displMode == const.DISPL_UPLD:        # type = "pressure"
+            elif SENSE_HAT.displMode == const.DISPL_UPLD:       # type = "upload"
                 systemData.upload.data.append(upld)
                 SENSE_HAT.display_as_graph(systemData.upload.as_dict())
 
-            elif SENSE_HAT.displMode == const.DISPL_PING:        # type = "humidity"
+            elif SENSE_HAT.displMode == const.DISPL_PING:       # type = "ping"
                 systemData.ping.data.append(ping)
                 SENSE_HAT.display_as_graph(systemData.ping.as_dict())
                     
             else:                                               # Display sparkles
                 SENSE_HAT.display_sparkle()
 
-            # Let's rest a bit before we go through the loop again
-            if (cliArgs.debug or cliArgs.verbose) and not ioUploadAndExit:
-                sys.stdout.write(f"Time to next update: {uploadDelay - int(timeSinceUpdate)} sec \r")
-                sys.stdout.flush()
-
-            # Update progress bar as needed and rest a bit 
-            # before we do this all over again :-)
-            SENSE_HAT.display_progress(timeSinceUpdate / uploadDelay)
-            time.sleep(ioWait)
+            # Are we done?
+            if not exitNow:
+                # If not, then lets update the progress bar as needed, and then rest
+                # a bit before we go through this whole loop all over again ... phew!
+                cliProgress = init_progressbar()
+                with cliProgress:
+                    for _ in cliProgress.track(range(ioWait), description="Waiting for next speed test ..."):
+                        SENSE_HAT.display_progress(timeSinceUpdate / uploadDelay)
+                        time.sleep(1)
 
     except KeyboardInterrupt:
         exitNow = True
@@ -491,11 +567,12 @@ def main(cliArgs=None):
     SENSE_HAT.display_off()
     
     now = datetime.now()
-    print(f"\n{APP_NAME} [v{APP_VERSION}] - finished.\n")
-    print(f"Num uploads: {numUploads}")
-    print(f"Date:        {now:%a %b %-d, %Y}")
-    print(f"Time:        {now:%-I:%M:%S %p}")
-    print("---- [ END ] ----\n")
+    console.rule("Summary", style="grey", align="center")
+    console.print(f"{APP_NAME} (v{APP_VERSION})")
+    console.print(f"Num uploads: {numUploads}")
+    console.print(f"Date:        {now:%a %b %-d, %Y}")
+    console.print(f"Time:        {now:%-I:%M:%S %p}")
+    console.rule(style="grey", align="center")
 
 
 # =========================================================
