@@ -56,7 +56,7 @@ import speedtest
 # =========================================================
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 APP_NAME = "f451 Labs piF451 - SysMon"
 APP_NAME_SHORT = "SysMon"
 APP_LOG = "f451-pif451-sysmon.log"      # Individual logs for devices with multiple apps
