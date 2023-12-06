@@ -14,6 +14,7 @@ DEF_WAIT = 1                # Default delay between sensor reads
 DEF_THROTTLE = 120          # Default additional delay on 'ThrottlingError'
 DEF_ROUNDING = 2            # Default 'rounding' precision for uploaded data
 
+
 # =========================================================
 #    K E Y W O R D S   F O R   C O N F I G   F I L E S
 # =========================================================

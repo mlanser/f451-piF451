@@ -26,7 +26,6 @@ NOTE: This application is designed to display data on the Raspberry Pi Sense HAT
 Dependencies:
     - adafruit-io - only install if you have an account with Adafruit IO
     - speedtest-cli - used for internet speed tests
-    - pyfiglet - used to print nice logo :-)
 """
 
 import argparse
@@ -63,7 +62,9 @@ APP_LOG = "f451-pif451-sysmon.log"      # Individual logs for devices with multi
 APP_SETTINGS = "settings.toml"          # Standard for all f451 Labs projects
 APP_DIR = Path(__file__).parent         # Find dir for this app
 
-APP_MIN_SPEEDTEST_WAIT = 60             # Minimum wait in sec bettween speed test checks 
+APP_MIN_SPEEDTEST_WAIT = 60             # Minimum wait in sec between speed test checks 
+APP_WAIT_1SEC = 1
+APP_WAIT_MIN = 5
 
 APP_DISPLAY_MODES = {
     f451SenseHat.KWD_DISPLAY_MIN: const.MAX_DISPL, 
@@ -90,7 +91,6 @@ try:
 except RequestError as e:
     LOGGER.log_error(f"Application terminated due to REQUEST ERROR: {e}")
     sys.exit(1)
-
 
 # We use these timers to track when to upload data and/or set
 # display to sleep mode. Normally we'd want them to be local vars 
@@ -370,7 +370,7 @@ def main(cliArgs=None):
     console = Console()
 
     # Show 'help' and exit if no args
-    cliArgs, unknown = cli.parse_known_args(cliArgs)
+    cliArgs, _ = cli.parse_known_args(cliArgs)
     if (not cliArgs and len(sys.argv) == 1):
         cli.print_help(sys.stdout)
         sys.exit(0)
@@ -450,7 +450,7 @@ def main(cliArgs=None):
                 cliArgs.noDisplay
             )
 
-            # Let's get some Speedtest data ...
+            # Get speed test data
             with console.status("Running speed test ..."):
                 speedData = get_speed_test_data(stClient)
 
@@ -460,32 +460,33 @@ def main(cliArgs=None):
 
             # Is it time to upload data?
             if timeSinceUpdate >= uploadDelay:
-                try:
-                    asyncio.run(upload_speedtest_data(
-                        download = round(dwnld, ioRounding), 
-                        upload = round(upld, ioRounding), 
-                        ping = round(ping, ioRounding), 
-                        deviceID = f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX)
-                    ))
+                with console.status("Uploading data ..."):
+                    try:
+                        asyncio.run(upload_speedtest_data(
+                            download = round(dwnld, ioRounding), 
+                            upload = round(upld, ioRounding), 
+                            ping = round(ping, ioRounding), 
+                            deviceID = f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX)
+                        ))
 
-                except RequestError as e:
-                    LOGGER.log_error(f"Application terminated: {e}")
-                    sys.exit(1)
+                    except RequestError as e:
+                        LOGGER.log_error(f"Application terminated: {e}")
+                        sys.exit(1)
 
-                except ThrottlingError:
-                    # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
-                    uploadDelay += ioThrottle
-                    
-                else:
-                    # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
-                    numUploads += 1
-                    uploadDelay = ioFreq
-                    exitNow = (exitNow or ioUploadAndExit)
-                    LOGGER.log_info(f"Uploaded: DWN: {round(dwnld, ioRounding)} - UP: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
+                    except ThrottlingError:
+                        # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
+                        uploadDelay += ioThrottle
+                        
+                    else:
+                        # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
+                        numUploads += 1
+                        uploadDelay = ioFreq
+                        exitNow = (exitNow or ioUploadAndExit)
+                        LOGGER.log_info(f"Uploaded: DWN: {round(dwnld, ioRounding)} - UP: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
 
-                finally:
-                    timeUpdate = timeCurrent
-                    exitNow = ((maxUploads > 0) and (numUploads >= maxUploads))
+                    finally:
+                        timeUpdate = timeCurrent
+                        exitNow = ((maxUploads > 0) and (numUploads >= maxUploads))
 
             # Check display mode. Each mode corresponds to a data type
             if SENSE_HAT.displMode == const.DISPL_DWNLD:        # type = "download"
@@ -504,14 +505,14 @@ def main(cliArgs=None):
                 SENSE_HAT.display_sparkle()
 
             # Are we done?
-            if not exitNow:
+            if not exitNow and ioWait >= APP_WAIT_MIN:
                 # If not, then lets update the progress bar as needed, and then rest
                 # a bit before we go through this whole loop all over again ... phew!
                 cliProgress = init_progressbar()
                 with cliProgress:
                     for _ in cliProgress.track(range(ioWait), description="Waiting for next speed test ..."):
                         SENSE_HAT.display_progress(timeSinceUpdate / uploadDelay)
-                        time.sleep(1)
+                        time.sleep(APP_WAIT_1SEC)
 
     except KeyboardInterrupt:
         exitNow = True
