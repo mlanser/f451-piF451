@@ -103,17 +103,6 @@ displayUpdate = timeUpdate
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-def init_progressbar(refreshRate=2):
-    """Initialize new progress bar."""
-    return Progress(                     
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        transient=True,
-        refresh_per_second=refreshRate
-    )
-
-
 def debug_config_info(cliArgs, console=None):
     """Print/log some basic debug info."""
 
@@ -137,6 +126,22 @@ def debug_config_info(cliArgs, console=None):
 
     # Display CLI args
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
+
+
+def init_layout():
+    """Initialize layout for CLI"""
+    pass
+
+
+def init_progressbar(refreshRate=2):
+    """Initialize new progress bar."""
+    return Progress(                     
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        transient=True,
+        refresh_per_second=refreshRate
+    )
 
 
 def init_cli_parser():
