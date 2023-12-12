@@ -55,20 +55,20 @@ import speedtest
 # =========================================================
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
-APP_VERSION = "0.4.2"
-APP_NAME = "f451 Labs piF451 - SysMon"
-APP_NAME_SHORT = "SysMon"
-APP_LOG = "f451-pif451-sysmon.log"      # Individual logs for devices with multiple apps
-APP_SETTINGS = "settings.toml"          # Standard for all f451 Labs projects
-APP_DIR = Path(__file__).parent         # Find dir for this app
+APP_VERSION = '0.4.2'
+APP_NAME = 'f451 Labs piF451 - SysMon'
+APP_NAME_SHORT = 'SysMon'
+APP_LOG = 'f451-pif451-sysmon.log'  # Individual logs for devices with multiple apps
+APP_SETTINGS = 'settings.toml'      # Standard for all f451 Labs projects
+APP_DIR = Path(__file__).parent     # Find dir for this app
 
-APP_MIN_SPEEDTEST_WAIT = 60             # Minimum wait in sec between speed test checks 
+APP_MIN_SPEEDTEST_WAIT = 60         # Minimum wait in sec between speed test checks
 APP_WAIT_1SEC = 1
 APP_WAIT_MIN = 5
 
 APP_DISPLAY_MODES = {
-    f451SenseHat.KWD_DISPLAY_MIN: const.MAX_DISPL, 
-    f451SenseHat.KWD_DISPLAY_MAX: const.MIN_DISPL
+    f451SenseHat.KWD_DISPLAY_MIN: const.MAX_DISPL,
+    f451SenseHat.KWD_DISPLAY_MAX: const.MIN_DISPL,
 }
 
 # Load settings
@@ -93,8 +93,8 @@ except RequestError as e:
     sys.exit(1)
 
 # We use these timers to track when to upload data and/or set
-# display to sleep mode. Normally we'd want them to be local vars 
-# inside 'main()'. However, since we need them reset them in the 
+# display to sleep mode. Normally we'd want them to be local vars
+# inside 'main()'. However, since we need them reset them in the
 # button actions, they need to be global.
 timeUpdate = time.time()
 displayUpdate = timeUpdate
@@ -107,8 +107,8 @@ def debug_config_info(cliArgs, console=None):
     """Print/log some basic debug info."""
 
     if console:
-        console.rule("Config Settings", style="grey", align="center")
-    else:    
+        console.rule('Config Settings', style='grey', align='center')
+    else:
         LOGGER.log_debug("-- Config Settings --")
 
     LOGGER.log_debug(f"DISPL ROT:   {SENSE_HAT.displRotation}")
@@ -122,7 +122,9 @@ def debug_config_info(cliArgs, console=None):
 
     # Display Raspberry Pi serial and Wi-Fi status
     LOGGER.log_debug(f"Raspberry Pi serial: {f451Common.get_RPI_serial_num()}")
-    LOGGER.log_debug(f"Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}")
+    LOGGER.log_debug(
+        f"Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}"
+    )
 
     # Display CLI args
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
@@ -135,12 +137,12 @@ def init_layout():
 
 def init_progressbar(refreshRate=2):
     """Initialize new progress bar."""
-    return Progress(                     
-        TextColumn("[progress.description]{task.description}"),
+    return Progress(
+        TextColumn('[progress.description]{task.description}'),
         BarColumn(),
         TaskProgressColumn(),
         transient=True,
-        refresh_per_second=refreshRate
+        refresh_per_second=refreshRate,
     )
 
 
@@ -160,50 +162,50 @@ def init_cli_parser():
     )
 
     parser.add_argument(
-        "-V",
-        "--version",
-        action="store_true",
+        '-V',
+        '--version',
+        action='store_true',
         help="display script version number and exit",
     )
     parser.add_argument(
-        "-d",
-        "--debug", 
-        action="store_true", 
+        '-d', 
+        '--debug', 
+        action='store_true', 
         help="run script in debug mode"
     )
     parser.add_argument(
-        "--cron",
-        action="store_true",
+        '--cron',
+        action='store_true',
         help="use when running as cron job - run script once and exit",
     )
     parser.add_argument(
-        "--noDisplay",
-        action="store_true",
+        '--noDisplay',
+        action='store_true',
         default=False,
         help="do not display output on LED",
     )
     parser.add_argument(
-        "--progress",
-        action="store_true",
+        '--progress',
+        action='store_true',
         help="show upload progress bar on LED",
     )
     parser.add_argument(
-        "--log",
-        action="store",
+        '--log',
+        action='store',
         type=str,
         help="name of log file",
     )
     parser.add_argument(
-        "--uploads",
-        action="store",
+        '--uploads',
+        action='store',
         type=int,
         default=-1,
         help="number of uploads before exiting",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
+        '-v',
+        '--verbose',
+        action='store_true',
         default=False,
         help="show output to CLI stdout",
     )
@@ -213,11 +215,11 @@ def init_cli_parser():
 
 async def upload_speedtest_data(*args, **kwargs):
     """Send speedtest data to cloud services.
-    
-    This helper function parses and sends speedtest data to 
+
+    This helper function parses and sends speedtest data to
     Adafruit IO and/or Arduino Cloud.
 
-    NOTE: This function will upload specific environment 
+    NOTE: This function will upload specific environment
           data using the following keywords:
 
           'download' - download speed
@@ -231,7 +233,7 @@ async def upload_speedtest_data(*args, **kwargs):
             User can provide individual data points as key-value pairs
     """
     # We combine 'args' and 'kwargs' to allow users to provide a 'dict' with
-    # all data points and/or individual data points (which could override 
+    # all data points and/or individual data points (which could override
     # values in the 'dict').
     data = {**args[0], **kwargs} if args and isinstance(args[0], dict) else kwargs
 
@@ -239,15 +241,15 @@ async def upload_speedtest_data(*args, **kwargs):
 
     # Send download speed data ?
     if data.get(const.KWD_DATA_DWNLD, None) is not None:
-        sendQ.append(UPLOADER.aio_send_data(FEED_DWNLD.key, data.get(const.KWD_DATA_DWNLD)))
+        sendQ.append(UPLOADER.aio_send_data(FEED_DWNLD.key, data.get(const.KWD_DATA_DWNLD))) # type: ignore
 
     # Send upload speed data ?
     if data.get(const.KWD_DATA_UPLD, None) is not None:
-        sendQ.append(UPLOADER.aio_send_data(FEED_UPLD.key, data.get(const.KWD_DATA_UPLD)))
+        sendQ.append(UPLOADER.aio_send_data(FEED_UPLD.key, data.get(const.KWD_DATA_UPLD))) # type: ignore
 
     # Send ping response data ?
     if data.get(const.KWD_DATA_PING, None) is not None:
-        sendQ.append(UPLOADER.aio_send_data(FEED_PING.key, data.get(const.KWD_DATA_PING)))
+        sendQ.append(UPLOADER.aio_send_data(FEED_PING.key, data.get(const.KWD_DATA_PING))) # type: ignore
 
     # deviceID = SENSE_HAT.get_ID(DEF_ID_PREFIX)
 
@@ -274,7 +276,7 @@ def get_speed_test_data(client):
 
 def btn_up(event):
     """SenseHat Joystick UP event
-    
+
     Rotate display by -90 degrees and reset screen blanking
     """
     global displayUpdate
@@ -286,7 +288,7 @@ def btn_up(event):
 
 def btn_down(event):
     """SenseHat Joystick DOWN event
-    
+
     Rotate display by +90 degrees and reset screen blanking
     """
     global displayUpdate
@@ -298,7 +300,7 @@ def btn_down(event):
 
 def btn_left(event):
     """SenseHat Joystick LEFT event
-    
+
     Switch display mode by 1 mode and reset screen blanking
     """
     global displayUpdate
@@ -310,7 +312,7 @@ def btn_left(event):
 
 def btn_right(event):
     """SenseHat Joystick RIGHT event
-    
+
     Switch display mode by 1 mode and reset screen blanking
     """
     global displayUpdate
@@ -322,7 +324,7 @@ def btn_right(event):
 
 def btn_middle(event):
     """SenseHat Joystick MIDDLE (down) event
-    
+
     Turn display on/off
     """
     global displayUpdate
@@ -332,7 +334,7 @@ def btn_middle(event):
         if SENSE_HAT.displSleepMode:
             SENSE_HAT.update_sleep_mode(False)
             displayUpdate = time.time()
-        else:    
+        else:
             SENSE_HAT.update_sleep_mode(True)
 
 
@@ -358,8 +360,8 @@ def main(cliArgs=None):
      -  Application will exit with error level 1 if invalid Adafruit IO
         or Arduino Cloud feeds are provided
 
-     -  Application will exit with error level 0 if either no arguments 
-        are entered via CLI, or if arguments '-V' or '--version' are used. 
+     -  Application will exit with error level 0 if either no arguments
+        are entered via CLI, or if arguments '-V' or '--version' are used.
         No data will be uploaded will be sent in that case.
 
     Args:
@@ -376,21 +378,19 @@ def main(cliArgs=None):
 
     # Show 'help' and exit if no args
     cliArgs, _ = cli.parse_known_args(cliArgs)
-    if (not cliArgs and len(sys.argv) == 1):
+    if not cliArgs and len(sys.argv) == 1:
         cli.print_help(sys.stdout)
         sys.exit(0)
 
     if cliArgs.version:
-        print(f"{APP_NAME} (v{APP_VERSION})")
+        print(f'{APP_NAME} (v{APP_VERSION})')
         sys.exit(0)
 
     # Display LOGO :-)
     conWidth, _ = console.size
-    print(f451Common.make_logo(
-            conWidth, 
-            APP_NAME_SHORT, 
-            f"v{APP_VERSION}", 
-            f"{APP_NAME} (v{APP_VERSION})"
+    print(
+        f451Common.make_logo(
+            conWidth, APP_NAME_SHORT, f'v{APP_VERSION}', f'{APP_NAME} (v{APP_VERSION})'
         )
     )
 
@@ -400,7 +400,7 @@ def main(cliArgs=None):
     SENSE_HAT.update_sleep_mode(cliArgs.noDisplay)
 
     if cliArgs.progress:
-        SENSE_HAT.displProgress(True)
+        SENSE_HAT.displProgress = True
 
     # Get core settings
     ioFreq = CONFIG.get(const.KWD_FREQ, const.DEF_FREQ)
@@ -411,7 +411,7 @@ def main(cliArgs=None):
     ioUploadAndExit = cliArgs.cron
 
     logLvl = CONFIG.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
-    debugMode = (logLvl == f451Logger.LOG_DEBUG)
+    debugMode = logLvl == f451Logger.LOG_DEBUG
 
     # Initialize core data queues and SpeedTest client
     systemData = f451SystemData.SystemData(1, SENSE_HAT.widthLED)
@@ -433,13 +433,13 @@ def main(cliArgs=None):
     timeSinceUpdate = 0
     timeUpdate = time.time()
     displayUpdate = timeUpdate
-    uploadDelay = ioDelay       # Ensure that we do NOT upload first reading
+    uploadDelay = ioDelay  # Ensure that we do NOT upload first reading
     maxUploads = int(cliArgs.uploads)
     numUploads = 0
     exitNow = False
 
     # Let user know that magic is about to happen ;-)
-    console.rule(style="grey", align="center")
+    console.rule(style='grey', align='center')
     print(f"{APP_NAME} (v{APP_VERSION})")
     print(f"Work start:  {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
 
@@ -451,28 +451,29 @@ def main(cliArgs=None):
             timeCurrent = time.time()
             timeSinceUpdate = timeCurrent - timeUpdate
             SENSE_HAT.update_sleep_mode(
-                (timeCurrent - displayUpdate) > SENSE_HAT.displSleepTime,
-                cliArgs.noDisplay
+                (timeCurrent - displayUpdate) > SENSE_HAT.displSleepTime, cliArgs.noDisplay
             )
 
             # Get speed test data
-            with console.status("Running speed test ..."):
+            with console.status('Running speed test ...'):
                 speedData = get_speed_test_data(stClient)
 
-            dwnld = round(speedData[const.KWD_DATA_DWNLD]/const.MBITS_PER_SEC, 1)
-            upld = round(speedData[const.KWD_DATA_UPLD]/const.MBITS_PER_SEC, 1)
+            dwnld = round(speedData[const.KWD_DATA_DWNLD] / const.MBITS_PER_SEC, 1)
+            upld = round(speedData[const.KWD_DATA_UPLD] / const.MBITS_PER_SEC, 1)
             ping = speedData[const.KWD_DATA_PING]
 
             # Is it time to upload data?
             if timeSinceUpdate >= uploadDelay:
-                with console.status("Uploading data ..."):
+                with console.status('Uploading data ...'):
                     try:
-                        asyncio.run(upload_speedtest_data(
-                            download = round(dwnld, ioRounding), 
-                            upload = round(upld, ioRounding), 
-                            ping = round(ping, ioRounding), 
-                            deviceID = f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX)
-                        ))
+                        asyncio.run(
+                            upload_speedtest_data(
+                                download=round(dwnld, ioRounding),
+                                upload=round(upld, ioRounding),
+                                ping=round(ping, ioRounding),
+                                deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
+                            )
+                        )
 
                     except RequestError as e:
                         LOGGER.log_error(f"Application terminated: {e}")
@@ -481,32 +482,34 @@ def main(cliArgs=None):
                     except ThrottlingError:
                         # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
                         uploadDelay += ioThrottle
-                        
+
                     else:
                         # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
                         numUploads += 1
                         uploadDelay = ioFreq
-                        exitNow = (exitNow or ioUploadAndExit)
-                        LOGGER.log_info(f"Uploaded: DWN: {round(dwnld, ioRounding)} - UP: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}")
+                        exitNow = exitNow or ioUploadAndExit
+                        LOGGER.log_info(
+                            f"Uploaded: DWN: {round(dwnld, ioRounding)} - UP: {round(upld, ioRounding)} - PING: {round(ping, ioRounding)}"
+                        )
 
                     finally:
                         timeUpdate = timeCurrent
-                        exitNow = ((maxUploads > 0) and (numUploads >= maxUploads))
+                        exitNow = (maxUploads > 0) and (numUploads >= maxUploads)
 
             # Check display mode. Each mode corresponds to a data type
-            if SENSE_HAT.displMode == const.DISPL_DWNLD:        # type = "download"
+            if SENSE_HAT.displMode == const.DISPL_DWNLD:  # type = "download"
                 systemData.download.data.append(dwnld)
                 SENSE_HAT.display_as_graph(systemData.download.as_dict())
 
-            elif SENSE_HAT.displMode == const.DISPL_UPLD:       # type = "upload"
+            elif SENSE_HAT.displMode == const.DISPL_UPLD:  # type = "upload"
                 systemData.upload.data.append(upld)
                 SENSE_HAT.display_as_graph(systemData.upload.as_dict())
 
-            elif SENSE_HAT.displMode == const.DISPL_PING:       # type = "ping"
+            elif SENSE_HAT.displMode == const.DISPL_PING:  # type = "ping"
                 systemData.ping.data.append(ping)
                 SENSE_HAT.display_as_graph(systemData.ping.as_dict())
-                    
-            else:                                               # Display sparkles
+
+            else:  # Display sparkles
                 SENSE_HAT.display_sparkle()
 
             # Are we done?
@@ -515,7 +518,9 @@ def main(cliArgs=None):
                 # a bit before we go through this whole loop all over again ... phew!
                 cliProgress = init_progressbar()
                 with cliProgress:
-                    for _ in cliProgress.track(range(ioWait), description="Waiting for next speed test ..."):
+                    for _ in cliProgress.track(
+                        range(ioWait), description='Waiting for next speed test ...'
+                    ):
                         SENSE_HAT.display_progress(timeSinceUpdate / uploadDelay)
                         time.sleep(APP_WAIT_1SEC)
 
@@ -528,15 +533,15 @@ def main(cliArgs=None):
     # A bit of clean-up before we exit ...
     SENSE_HAT.display_reset()
     SENSE_HAT.display_off()
-    
+
     # ... and display summary info
     print(f"Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
     print(f"Num uploads: {numUploads}")
-    console.rule(style="grey", align="center")
+    console.rule(style='grey', align='center')
 
 
 # =========================================================
 #            G L O B A L   C A T C H - A L L
 # =========================================================
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()  # pragma: no cover

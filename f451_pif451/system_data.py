@@ -26,8 +26,8 @@ import f451_sensehat.sensehat_data as f451SenseData
 # =========================================================
 class SystemData:
     """Data structure for holding and managing system data.
-    
-    Create an empty full-size data structure that we use 
+
+    Create an empty full-size data structure that we use
     in the app to collect a series of system data.
 
     NOTE: The 'limits' attribute stores a list of limits. You
@@ -55,6 +55,7 @@ class SystemData:
     Methods:
         as_list: returns a 'list' with data from each attribute as 'dict'
     """
+
     def __init__(self, defVal, maxLen):
         """Initialize data structurte.
 
@@ -67,24 +68,24 @@ class SystemData:
         """
         self.download = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            (None, None),       # min/max range for valid data
-            "MB/s",
+            (None, None),  # min/max range for valid data
+            'MB/s',
             [0, 0, 0, 0],
-            "Download"
+            'Download',
         )
         self.upload = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            (None, None),       # min/max range for valid data
-            "MB/s",
+            (None, None),  # min/max range for valid data
+            'MB/s',
             [0, 0, 0, 0],
-            "Upload"
+            'Upload',
         )
         self.ping = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            (None, None),       # min/max range for valid data
-            "ms",
+            (None, None),  # min/max range for valid data
+            'ms',
             [0, 0, 0, 0],
-            "Ping"
+            'Ping',
         )
 
     def as_list(self):
