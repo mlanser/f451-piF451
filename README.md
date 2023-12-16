@@ -1,4 +1,4 @@
-# Instructions for f451-piF451 v0.4.3
+# Instructions for f451-piF451 v0.5.0
 
 ## Custom application settings in SETTINGS.TOML
 
