@@ -40,3 +40,5 @@ DELAY = 300             # Delay in seconds before first upload to cloud
 WAIT = 1                # Delay in seconds between sensor reads
 THROTTLE = 120          # Additional delay in seconds on 'ThottlingError'
 ROUNDING = 1            # Precision (num decimals) for uploaded data
+
+TEMP_COMP = 2.25        # 0 = Disable temp compensation, >0 to be used comp.factor
