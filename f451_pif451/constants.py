@@ -1,10 +1,11 @@
-"""Global constants for f451 Labs piF451 application.
+"""Global constants for f451 Labs piRED & piF451 applications
 
-This module holds all global constants used within the components of 
-the f451 Labs piF451 application. Some of the constants are used as 
-keyword equivalents for attributes listed in the `settings.toml` file.
+This module holds all global constants used within the components of the 
+f451 Labs piRED and piF451 applications. Some of the constants are used 
+as keyword equivalents for attributes listed in the `settings.toml` file.
 """
 
+# fmt: off
 # =========================================================
 #              M I S C .   C O N S T A N T S
 # =========================================================
@@ -13,6 +14,7 @@ DEF_DELAY = 300     # Default delay before first upload in seconds
 DEF_WAIT = 1        # Default delay between sensor reads
 DEF_THROTTLE = 120  # Default additional delay on 'ThrottlingError'
 DEF_ROUNDING = 2    # Default 'rounding' precision for uploaded data
+# fmt: on
 
 
 # =========================================================
@@ -24,6 +26,7 @@ KWD_WAIT = 'WAIT'
 KWD_THROTTLE = 'THROTTLE'
 KWD_ROUNDING = 'ROUNDING'
 
+# -- Support for internet speed data --
 KWD_FEED_DWNLD = 'FEED_DWNLD'
 KWD_FEED_UPLD = 'FEED_UPLD'
 KWD_FEED_PING = 'FEED_PING'
@@ -32,7 +35,7 @@ KWD_DATA_DWNLD = 'download'
 KWD_DATA_UPLD = 'upload'
 KWD_DATA_PING = 'ping'
 
-# -- Additional support for environment data --
+# -- Support for environment data --
 KWD_FEED_TEMPS = 'FEED_TEMPS'
 KWD_FEED_PRESS = 'FEED_PRESS'
 KWD_FEED_HUMID = 'FEED_HUMID'
@@ -42,6 +45,7 @@ KWD_DATA_PRESS = 'pressure'
 KWD_DATA_HUMID = 'humidity'
 
 
+# fmt: off
 # =========================================================
 #   C O N S T A N T S   F O R   D I S P L A Y   M O D E S
 # =========================================================
@@ -56,3 +60,4 @@ MAX_DISPL = 3                   # Cannot be larger than largest DISPL_xx value
 # -- SpeedTest --
 MBITS_PER_SEC = 1048576         # 1 MB = 1024 * 1024
 MAX_SPEED_MB = 3000             # Max Download speed = 3 Gbps = 3,000 Mbps
+# fmt: on

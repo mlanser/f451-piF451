@@ -35,9 +35,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mlanser/f451-pired"
+Homepage = "https://github.com/mlanser/f451-pif451"
 
 [project.scripts]
+sensemon = "f451_pif451.sensemon:main"
 sysmon = "f451_pif451.sysmon:main"
 
 [tool.bumpver]
@@ -56,6 +57,7 @@ push = false
 "pyproject.toml" = ['current_version = "{version}"']
 "f451_pif451/__init__.py" = ["__version__ = '{version}'"]
 "f451_pif451/sysmon.py" = ["APP_VERSION = '{version}'"]
+"f451_pif451/sensemon.py" = ["APP_VERSION = '{version}'"]
 "README.md" = ['v{version}$']
 
 [tool.ruff]
