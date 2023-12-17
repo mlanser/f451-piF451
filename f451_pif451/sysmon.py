@@ -51,6 +51,12 @@ from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
 from Adafruit_IO import RequestError, ThrottlingError
 import speedtest
 
+# Install Rich 'traceback' and 'pprint' to 
+# make (debug) life is easier. Trust me!
+from rich.pretty import pprint
+from rich.traceback import install as install_rich_traceback
+install_rich_traceback(show_locals=True)
+
 
 # =========================================================
 #          G L O B A L S   A N D   H E L P E R S
@@ -538,6 +544,8 @@ def main(cliArgs=None):
     print(f"Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
     print(f"Num uploads: {numUploads}")
     console.rule(style='grey', align='center')
+    pprint(locals(), expand_all=True)
+    pprint(CONFIG, expand_all=True)
 
 
 # =========================================================
