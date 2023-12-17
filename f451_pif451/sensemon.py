@@ -812,6 +812,7 @@ def main(cliArgs=None):
     print()
     pprint(locals(), expand_all=True)
     pprint(CONFIG, expand_all=True)
+    pprint(SENSE_HAT, expand_all=True)
 
 
 # =========================================================
