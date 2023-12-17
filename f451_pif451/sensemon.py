@@ -89,8 +89,8 @@ APP_DELTA_FACTOR = 0.02             # Any change within X% is considered negliga
 APP_DATA_TYPES = ['temperature', 'pressure', 'humidity']
 
 APP_DISPLAY_MODES = {
-    f451SenseHat.KWD_DISPLAY_MIN: const.MAX_DISPL,
-    f451SenseHat.KWD_DISPLAY_MAX: const.MIN_DISPL,
+    f451SenseHat.KWD_DISPLAY_MIN: const.MIN_DISPL,
+    f451SenseHat.KWD_DISPLAY_MAX: const.MAX_DISPL,
 }
 
 # Load settings
@@ -480,7 +480,8 @@ def btn_up(event):
     global displayUpdate
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.display_rotate(-1)
+        # SENSE_HAT.display_rotate(-1)
+        SENSE_HAT.debug_joystick("up")
         displayUpdate = time.time()
 
 
@@ -492,7 +493,8 @@ def btn_down(event):
     global displayUpdate
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.display_rotate(1)
+        # SENSE_HAT.display_rotate(1)
+        SENSE_HAT.debug_joystick("down")
         displayUpdate = time.time()
 
 
@@ -504,7 +506,8 @@ def btn_left(event):
     global displayUpdate
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.update_display_mode(-1)
+        # SENSE_HAT.update_display_mode(-1)
+        SENSE_HAT.debug_joystick("left")
         displayUpdate = time.time()
 
 
@@ -516,7 +519,8 @@ def btn_right(event):
     global displayUpdate
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.update_display_mode(1)
+        # SENSE_HAT.update_display_mode(1)
+        SENSE_HAT.debug_joystick("right")
         displayUpdate = time.time()
 
 
@@ -528,12 +532,13 @@ def btn_middle(event):
     global displayUpdate
 
     if event.action != f451SenseHat.BTN_RELEASE:
+        SENSE_HAT.debug_joystick("press")
         # Wake up?
-        if SENSE_HAT.displSleepMode:
-            SENSE_HAT.update_sleep_mode(False)
-            displayUpdate = time.time()
-        else:
-            SENSE_HAT.update_sleep_mode(True)
+        # if SENSE_HAT.displSleepMode:
+        #     SENSE_HAT.update_sleep_mode(False)
+        #     displayUpdate = time.time()
+        # else:
+        #     SENSE_HAT.update_sleep_mode(True)
 
 
 APP_JOYSTICK_ACTIONS = {
