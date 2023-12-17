@@ -70,21 +70,21 @@ class SystemData:
             deque([defVal] * maxLen, maxlen=maxLen),
             (None, None),  # min/max range for valid data
             'MB/s',
-            [0, 0, 0, 0],
+            [None, None, None, None],
             'Download',
         )
         self.upload = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
             (None, None),  # min/max range for valid data
             'MB/s',
-            [0, 0, 0, 0],
+            [None, None, None, None],
             'Upload',
         )
         self.ping = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
             (None, None),  # min/max range for valid data
             'ms',
-            [0, 0, 0, 0],
+            [None, None, None, None],
             'Ping',
         )
 
