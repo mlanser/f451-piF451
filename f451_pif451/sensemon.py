@@ -72,7 +72,7 @@ install_rich_traceback(show_locals=True)
 # =========================================================
 #          G L O B A L    V A R S   &   I N I T S
 # =========================================================
-APP_VERSION = '0.5.0'
+APP_VERSION = '0.5.1'
 APP_NAME = 'f451 Labs - SenseMon'
 APP_NAME_SHORT = 'SenseMon'
 APP_HOST = platform.node()          # Get device 'hostname'
