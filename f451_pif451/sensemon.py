@@ -58,13 +58,14 @@ import f451_sensehat.sensehat as f451SenseHat
 import f451_sensehat.sensehat_data as f451SenseData
 
 from rich.live import Live
-from rich.traceback import install as install_rich_traceback
 
 from Adafruit_IO import RequestError, ThrottlingError
 
 
-# Install Rich 'traceback' to make (debug) life is
-# easier. Trust me!
+# Install Rich 'traceback' and 'pprint' to 
+# make (debug) life is easier. Trust me!
+from rich.pretty import pprint
+from rich.traceback import install as install_rich_traceback
 install_rich_traceback(show_locals=True)
 
 
@@ -809,6 +810,8 @@ def main(cliArgs=None):
 
     screen.console.rule(style='grey', align='center')
     print()
+    pprint(locals(), expand_all=True)
+    pprint(CONFIG, expand_all=True)
 
 
 # =========================================================
