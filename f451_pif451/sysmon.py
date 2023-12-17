@@ -136,6 +136,51 @@ def debug_config_info(cliArgs, console=None):
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
 
 
+def prep_data_for_sensehat(inData, ledWidth):
+    """Prep data for Sense HAT
+    
+    This function will filter data to ensure we don't have incorrect 
+    outliers (e.g. from faulty sensors, etc.). The final data set will 
+    have only valid values. Any invalid values will be replaced with 
+    0's so that we can display the set on the Sense HAT LED.
+    
+    This will technically affect the min/max values for the set. However, 
+    we're displaying this data on an 8x8 LED. So visual 'accuracy' is 
+    already less than ideal ;-)
+
+    NOTE: the data structure is more complex than we need for Sense HAT
+    devices. But we want to maintain a basic level of compatibility with
+    other f451 Labs modules.
+
+    Args:
+        inData: data set with 'raw' data from sensors
+        ledWidth: width of LED display
+    
+    Returns:
+        'dict' with compatible structure:
+            {
+                'data': [list of values],
+                'valid': <tuple with min/max>,
+                'unit': <unit string>,
+                'label': <label string>,
+                'limits': [list of limits]
+            }
+    """
+    # Data slice we can display on Sense HAT LED
+    dataSlice = list(inData['data'])[-ledWidth:]
+
+    # Return filtered data
+    dataClean = [i if f451Common.is_valid(i, inData['valid']) else 0 for i in dataSlice]
+
+    return {
+                'data': dataClean,
+                'valid': inData['valid'],
+                'unit': inData['unit'],
+                'label': inData['label'],
+                'limit': inData['limits']
+            }
+
+
 def init_layout():
     """Initialize layout for CLI"""
     pass
@@ -505,15 +550,24 @@ def main(cliArgs=None):
             # Check display mode. Each mode corresponds to a data type
             if SENSE_HAT.displMode == const.DISPL_DWNLD:  # type = "download"
                 systemData.download.data.append(dwnld)
-                SENSE_HAT.display_as_graph(systemData.download.as_dict())
+                SENSE_HAT.display_as_graph(prep_data_for_sensehat(
+                    systemData.download.as_dict(),
+                    SENSE_HAT.widthLED
+                ))
 
             elif SENSE_HAT.displMode == const.DISPL_UPLD:  # type = "upload"
                 systemData.upload.data.append(upld)
-                SENSE_HAT.display_as_graph(systemData.upload.as_dict())
+                SENSE_HAT.display_as_graph(prep_data_for_sensehat(
+                    systemData.upload.as_dict(),
+                    SENSE_HAT.widthLED
+                ))
 
             elif SENSE_HAT.displMode == const.DISPL_PING:  # type = "ping"
                 systemData.ping.data.append(ping)
-                SENSE_HAT.display_as_graph(systemData.ping.as_dict())
+                SENSE_HAT.display_as_graph(prep_data_for_sensehat(
+                    systemData.ping.as_dict(),
+                    SENSE_HAT.widthLED
+                ))
 
             else:  # Display sparkles
                 SENSE_HAT.display_sparkle()
