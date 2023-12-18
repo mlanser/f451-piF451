@@ -160,8 +160,9 @@ def prep_data_for_sensehat(inData, ledWidth):
     other f451 Labs modules.
 
     Args:
-        inData: data set with 'raw' data from sensors
+        inData: 'DataUnit' named tuple with 'raw' data from sensors
         ledWidth: width of LED display
+        allowNone: 
     
     Returns:
         'DataUnit' named tuple with the following fields:
@@ -172,17 +173,17 @@ def prep_data_for_sensehat(inData, ledWidth):
             limits = [list of limits]
     """
     # Data slice we can display on Sense HAT LED
-    dataSlice = list(inData['data'])[-ledWidth:]
+    dataSlice = list(inData.data)[-ledWidth:]
 
     # Return filtered data
-    dataClean = [i if f451Common.is_valid(i, inData['valid']) else 0 for i in dataSlice]
+    dataClean = [i if f451Common.is_valid(i, inData.valid, False) else 0 for i in dataSlice]
 
     return f451SenseData.DataUnit(
         data = dataClean,
-        valid = inData['valid'],
-        unit = inData['unit'],
-        label = inData['label'],
-        limits = inData['limits']
+        valid = inData.valid,
+        unit = inData.unit,
+        label = inData.label,
+        limits = inData.limits
     )
 
 
@@ -376,18 +377,25 @@ APP_JOYSTICK_ACTIONS = {
 
 
 def update_SenseHat_LED(sense, data):
+    def _minMax(data):
+        """Create min/max based on all collecxted data
+        
+        This will smooth out some hard edges that may occur
+        when the data slice is to short.
+        """
+        scrubbed = [i for i in data if i is not None]
+        return (min(scrubbed), max(scrubbed)) if scrubbed else (0, 0)
+
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
-        sense.display_as_graph(prep_data_for_sensehat(
-            data.number1.as_dict(),
-            sense.widthLED
-        ))
+        dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
+        minMax = _minMax(data.number1.as_tuple().data)
+        sense.display_as_graph(dataClean, minMax)
 
     elif sense.displMode == 2:
-        sense.display_as_graph(prep_data_for_sensehat(
-            data.number2.as_dict(),
-            sense.widthLED
-        ))
+        dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
+        minMax = _minMax(data.number2.as_tuple().data)
+        sense.display_as_graph(dataClean, minMax)
 
     else:  # Display sparkles
         sense.display_sparkle()
