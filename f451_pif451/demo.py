@@ -585,6 +585,7 @@ def main(cliArgs=None):
 
     if app.debugMode:
         debug_config_info(cliArgs, app.console)
+        pprint(demoData.number1.data, expand_all=True)
 
 
 # =========================================================
