@@ -176,7 +176,7 @@ def prep_data_for_sensehat(inData, ledWidth):
     dataSlice = list(inData.data)[-ledWidth:]
 
     # Return filtered data
-    dataClean = [i if f451Common.is_valid(i, inData.valid, False) else 0 for i in dataSlice]
+    dataClean = [i if f451Common.is_valid(i, inData.valid) else 0 for i in dataSlice]
 
     return f451SenseData.DataUnit(
         data = dataClean,
@@ -295,8 +295,8 @@ def get_random_demo_data(limits=None):
         'namedtuple' 'DataUnit with random demo data
     """
     return DataUnit(
-        number1 = random.randint(1, 100),
-        number2 = random.randint(101, 200)
+        number1 = random.randint(1, 200),
+        number2 = random.randint(0, 100)
     )
 
 

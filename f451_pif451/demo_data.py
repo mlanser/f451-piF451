@@ -47,14 +47,14 @@ class DemoData:
         """
         self.number1 = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            (None, None),  # min/max range for valid data
+            (1, 200),  # min/max range for valid data
             'km/h',
             [None, None, None, None],
             'Demo Speed',
         )
         self.number2 = f451SenseData.SenseObject(
             deque([defVal] * maxLen, maxlen=maxLen),
-            (None, None),  # min/max range for valid data
+            (0, 100),  # min/max range for valid data
             '%',
             [None, None, None, None],
             'Demo Pcnt',
