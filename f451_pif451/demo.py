@@ -582,10 +582,10 @@ def main(cliArgs=None):
     app.console.rule(style='grey', align='center') # type: ignore
     pprint(locals(), expand_all=True)
     pprint(CONFIG, expand_all=True)
+    pprint(demoData.number1.data, expand_all=True)
 
     if app.debugMode:
         debug_config_info(cliArgs, app.console)
-        pprint(demoData.number1.data, expand_all=True)
 
 
 # =========================================================
