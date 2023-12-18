@@ -484,6 +484,7 @@ def main(cliArgs=None):
     # -- Main application loop --
     exitNow = False
     app.console.rule(style='grey', align='center') # type: ignore
+    SENSE_HAT.display_message(f"{APP_NAME} (v{APP_VERSION})")
     print(f"{APP_NAME} (v{APP_VERSION})")
     print(f"Work start:  {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
 
