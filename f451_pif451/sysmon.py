@@ -320,9 +320,8 @@ def get_speed_test_data(client):
     client.get_best_server()
     client.download()
     client.upload()
-    data = client.results.dict()
 
-    return data
+    return client.results.dict()
 
 
 def btn_up(event):

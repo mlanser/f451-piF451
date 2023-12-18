@@ -43,7 +43,7 @@ import sys
 import asyncio
 import platform
 
-from collections import deque
+from collections import deque, namedtuple
 from datetime import datetime
 from pathlib import Path
 
@@ -62,10 +62,11 @@ from rich.live import Live
 from Adafruit_IO import RequestError, ThrottlingError
 
 
-# Install Rich 'traceback' and 'pprint' to 
+# Install Rich 'traceback' and 'pprint' to
 # make (debug) life is easier. Trust me!
 from rich.pretty import pprint
 from rich.traceback import install as install_rich_traceback
+
 install_rich_traceback(show_locals=True)
 
 
@@ -127,6 +128,13 @@ displayUpdate = timeUpdate
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
+# Structure used for displaying data in UI
+UIData = namedtuple(
+    'UIData',
+    'sparkData sparkColors sparkMinMax dataPt dataPtOK dataPtDelta dataPtColor unit label',
+)
+
+
 def debug_config_info(cliArgs, console=None):
     """Print/log some basic debug info."""
 
@@ -160,14 +168,14 @@ def debug_config_info(cliArgs, console=None):
 
 def prep_data_for_sensehat(inData, ledWidth):
     """Prep data for Sense HAT
-    
-    This function will filter data to ensure we don't have incorrect 
-    outliers (e.g. from faulty sensors, etc.). The final data set will 
-    have only valid values. Any invalid values will be replaced with 
+
+    This function will filter data to ensure we don't have incorrect
+    outliers (e.g. from faulty sensors, etc.). The final data set will
+    have only valid values. Any invalid values will be replaced with
     0's so that we can display the set on the Sense HAT LED.
-    
-    This will technically affect the min/max values for the set. However, 
-    we're displaying this data on an 8x8 LED. So visual 'accuracy' is 
+
+    This will technically affect the min/max values for the set. However,
+    we're displaying this data on an 8x8 LED. So visual 'accuracy' is
     already less than ideal ;-)
 
     NOTE: the data structure is more complex than we need for Sense HAT
@@ -177,7 +185,7 @@ def prep_data_for_sensehat(inData, ledWidth):
     Args:
         inData: data set with 'raw' data from sensors
         ledWidth: width of LED display
-    
+
     Returns:
         'dict' with compatible structure:
             {
@@ -194,13 +202,13 @@ def prep_data_for_sensehat(inData, ledWidth):
     # Return filtered data
     dataClean = [i if f451Common.is_valid(i, inData['valid']) else 0 for i in dataSlice]
 
-    return {
-                'data': dataClean,
-                'valid': inData['valid'],
-                'unit': inData['unit'],
-                'label': inData['label'],
-                'limit': inData['limits']
-            }
+    return f451SenseHat.GraphData(
+        data=dataClean,
+        valid=inData['valid'],
+        unit=inData['unit'],
+        label=inData['label'],
+        limits=inData['limits'],
+    )
 
 
 def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
@@ -342,7 +350,9 @@ def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_M
             # We determine up/down/sideways trend by looking at delate between
             # current value and previous value. If current and/or previous value
             # is 'None' for whatever reason, then we assume 'sideways' (0)trend.
-            dataPtPrev = dataSlice[-2] if f451Common.is_valid(dataSlice[-2], row['valid']) else None
+            dataPtPrev = (
+                dataSlice[-2] if f451Common.is_valid(dataSlice[-2], row['valid']) else None
+            )
             dataPtDelta = f451Common.get_delta_range(dataPt, dataPtPrev, APP_DELTA_FACTOR)
 
             # Update data set
@@ -747,22 +757,19 @@ def main(cliArgs=None):
 
                 # Check display mode. Each mode corresponds to a data type
                 if SENSE_HAT.displMode == const.DISPL_TEMP:  # type = "temperature"
-                    SENSE_HAT.display_as_graph(prep_data_for_sensehat(
-                        senseData.temperature.as_dict(), 
-                        SENSE_HAT.widthLED
-                    ))
+                    SENSE_HAT.display_as_graph(
+                        prep_data_for_sensehat(senseData.temperature.as_dict(), SENSE_HAT.widthLED)
+                    )
 
                 elif SENSE_HAT.displMode == const.DISPL_PRESS:  # type = "pressure"
-                    SENSE_HAT.display_as_graph(prep_data_for_sensehat(
-                        senseData.pressure.as_dict(), 
-                        SENSE_HAT.widthLED
-                    ))
+                    SENSE_HAT.display_as_graph(
+                        prep_data_for_sensehat(senseData.pressure.as_dict(), SENSE_HAT.widthLED)
+                    )
 
                 elif SENSE_HAT.displMode == const.DISPL_HUMID:  # type = "humidity"
-                    SENSE_HAT.display_as_graph(prep_data_for_sensehat(
-                        senseData.humidity.as_dict(), 
-                        SENSE_HAT.widthLED
-                    ))
+                    SENSE_HAT.display_as_graph(
+                        prep_data_for_sensehat(senseData.humidity.as_dict(), SENSE_HAT.widthLED)
+                    )
 
                 else:  # Display sparkles
                     SENSE_HAT.display_sparkle()
