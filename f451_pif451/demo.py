@@ -294,12 +294,9 @@ def get_random_demo_data(limits=None):
     Returns:
         'namedtuple' 'DataUnit with random demo data
     """
-    lower = random.randint(1, 100)
-    upper = random.randint(lower, 2 * lower)
-
     return DataUnit(
-        number1 = random.randint(int(lower * 10), int(upper * 10)) / 100,
-        number2 = random.randint(int(lower * 10), int(upper * 10)) / 100
+        number1 = random.randint(1, 100),
+        number2 = random.randint(101, 200)
     )
 
 
