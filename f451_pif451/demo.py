@@ -391,11 +391,15 @@ def update_SenseHat_LED(sense, data):
         dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
         minMax = _minMax(data.number1.as_tuple().data)
         sense.display_as_graph(dataClean, minMax)
+        pprint(dataClean.data, expand_all=True)
+        pprint(minMax, expand_all=True)
 
     elif sense.displMode == 2:
         dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
         minMax = _minMax(data.number2.as_tuple().data)
         sense.display_as_graph(dataClean, minMax)
+        pprint(dataClean.data, expand_all=True)
+        pprint(minMax, expand_all=True)
 
     else:  # Display sparkles
         sense.display_sparkle()
