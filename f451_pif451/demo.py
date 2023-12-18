@@ -34,7 +34,6 @@ import random
 
 
 from collections import deque, namedtuple
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -51,7 +50,6 @@ from rich.console import Console
 from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
 
 from Adafruit_IO import RequestError, ThrottlingError
-import speedtest
 
 # Install Rich 'traceback' and 'pprint' to 
 # make (debug) life is easier. Trust me!
@@ -579,7 +577,6 @@ def main(cliArgs=None):
 
     if app.debugMode:
         debug_config_info(cliArgs, app.console)
-
 
 
 # =========================================================
