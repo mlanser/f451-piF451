@@ -521,6 +521,10 @@ def main(cliArgs=None):
                 cliArgs.noLED,                                                  # No LED?
                 SENSE_HAT.displSleepMode                                        # Already asleep?
             )
+
+            # Update Sense HAT prog bar as needed
+            SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
+            
             # --- Get magic data ---
             #
             # screen.update_action('Reading sensors …')
