@@ -362,7 +362,7 @@ def btn_middle(event):
             app.displayUpdate = time.time()
         else:
             SENSE_HAT.update_sleep_mode(True)
-            
+
 
 
 APP_JOYSTICK_ACTIONS = {
@@ -497,7 +497,7 @@ def main(cliArgs=None):
             timeCurrent = time.time()
             app.timeSinceUpdate = timeCurrent - app.timeUpdate
             SENSE_HAT.update_sleep_mode(
-                (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime, cliArgs.noLED
+                (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime, cliArgs.noLED, SENSE_HAT.displSleepMode
             )
 
             # --- Get magic data ---
