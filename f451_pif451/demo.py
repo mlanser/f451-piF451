@@ -40,6 +40,7 @@ from pathlib import Path
 from . import constants as const
 from . import demo_data as f451DemoData
 
+import f451_cli_ui.cli_ui as f451CLIUI
 import f451_common.common as f451Common
 import f451_logger.logger as f451Logger
 
@@ -187,73 +188,175 @@ def prep_data_for_sensehat(inData, lenSlice=0):
     )
 
 
-def init_cli_parser():
-    """Initialize CLI (ArgParse) parser.
+def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
+    """Prep data for display in terminal
 
-    Initialize the ArgParse parser with the CLI 'arguments' and
-    return a new parser instance.
+    We display a table in the terminal with a row for each data type. On 
+    each row, we the display label, last value (with unit), and a sparkline 
+    graph.
+
+    This function will filter data to ensure we don't have incorrect 
+    outliers (e.g. from faulty sensors, etc.). The final data set will 
+    have only valid values. Any invalid values will be replaced with 
+    0's so that we can display the set as a sparkline graph.
+    
+    This will technically affect the min/max values for the set. However, 
+    we're displaying this data in a table cells that will have about
+    40 columns, and each column is made up of block characters which 
+    can only show 8 different heights. So visual 'accuracy' is 
+    already less than ideal ;-)
+
+    NOTE: We need to map the data sets agains a numeric range of 1-8 so
+          that we can display them as sparkline graphs in the terminal.
+
+    NOTE: We're using the 'limits' list to color the values, which means
+          we need to create a special 'coloring' set for the sparkline
+          graphs using converted limit values.
+
+          The limits list has 4 values (see also 'SenseData' class) and
+          we need to map them to colors:
+
+          Limit set [A, B, C, D] means:
+
+                     val <= A -> Dangerously Low    = "bright_red"
+                B >= val >  A -> Low                = "bright_yellow"
+                C >= val >  B -> Normal             = "green"
+                D >= val >  C -> High               = "cyan"
+                     val >  D -> Dangerously High   = "blue"
+
+          Note that the Sparkline library has a specific syntax for
+          limits and colors:
+
+            "<name of color>:<gt|eq|lt>:<value>"
+
+          Also, we only care about 'low', 'normal', and 'high'
+
+    Args:
+        inData: 'dict' with Sense HAT data
 
     Returns:
-        ArgParse parser instance
+        'list' with processed data and only with data rows (i.e. temp,
+        humidity, pressure) and columns (i.e. label, last data pt, and
+        sparkline) that we want to display. Each row in the list is
+        designed for display in the terminal.
     """
-    parser = argparse.ArgumentParser(
-        prog=APP_NAME,
-        description=f"{APP_NAME} [v{APP_VERSION}] - collect internet speed test data using Speedtest CLI, and upload to Adafruit IO and/or Arduino Cloud.",
-        epilog="NOTE: This application requires active accounts with corresponding cloud services.",
-    )
+    outData = []
 
-    parser.add_argument(
-        '-V',
-        '--version',
-        action='store_true',
-        help="display script version number and exit",
-    )
-    parser.add_argument(
-        '-d', 
-        '--debug', 
-        action='store_true', 
-        help="run script in debug mode"
-    )
-    parser.add_argument(
-        '--noCLI',
-        action='store_true',
-        default=False,
-        help='do not display output on CLI',
-    )
-    parser.add_argument(
-        '--noLED',
-        action='store_true',
-        default=False,
-        help='do not display output on LED',
-    )
-    parser.add_argument(
-        '--progress',
-        action='store_true',
-        default=False,
-        help="show upload progress bar on LED",
-    )
-    parser.add_argument(
-        '--log',
-        action='store',
-        type=str,
-        help="name of log file",
-    )
-    parser.add_argument(
-        '--uploads',
-        action='store',
-        type=int,
-        default=-1,
-        help="number of uploads before exiting",
-    )
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        action='store_true',
-        default=False,
-        help="show output to CLI stdout",
-    )
+    def _sparkline_colors(limits, customColors=None):
+        """Create color mapping for sparkline graphs
 
-    return parser
+        This function creates the 'color' list which allows
+        the 'sparklines' library to add add correct ANSI
+        color codes to the graph.
+
+        Args:
+            limits: list with limits -- see SenseHat module for details
+            customColors: (optional) custom color map
+
+        Return:
+            'list' with definitions for 'emph' param of 'sparklines' method
+        """
+        colorMap = f451Common.get_tri_colors(customColors)
+
+        # fmt: off
+        return [
+            f'{colorMap.high}:gt:{round(limits[2], 1)}',    # High   # type: ignore
+            f'{colorMap.normal}:eq:{round(limits[2], 1)}',  # Normal # type: ignore
+            f'{colorMap.normal}:lt:{round(limits[2], 1)}',  # Normal # type: ignore
+            f'{colorMap.low}:eq:{round(limits[1], 1)}',     # Low    # type: ignore
+            f'{colorMap.low}:lt:{round(limits[1], 1)}',     # Low    # type: ignore
+        ]
+        # fmt: on
+
+    def _dataPt_color(val, limits, default='', customColors=None):
+        """Determine color mapping for specific value
+
+        Args:
+            val: value to check
+            limits: list with limits -- see SenseHat module for details
+            default: (optional) default color name string
+            customColors: (optional) custom color map
+
+        Return:
+            'list' with definitions for 'emph' param of 'sparklines' method
+        """
+        color = default
+        colorMap = f451Common.get_tri_colors(customColors)
+
+        if val is not None:
+            if val > round(limits[2], 1):
+                color = colorMap.high
+            elif val <= round(limits[1], 1):
+                color = colorMap.low
+            else:
+                color = colorMap.normal
+
+        return color
+
+    # Process each data row and create a new data structure that we can use
+    # for displaying all necessary data in the terminal.
+    for key, row in inData.items():
+        if key in APP_DATA_TYPES:
+            # Create new crispy clean set :-)
+            dataSet = {
+                'sparkData': [],
+                'sparkColors': [],
+                'sparkMinMax': (None, None),
+                'dataPt': None,
+                'dataPtOK': True,
+                'dataPtDelta': 0,
+                'dataPtColor': '',
+                'unit': row['unit'],
+                'label': row['label'],
+            }
+
+            # If we only need labels, then we'll skip to
+            # next iteration of the loop
+            if labelsOnly:
+                outData.append(dataSet)
+                continue
+
+            # Data slice we can display in table row
+            graphWidth = min(int(conWidth / 2), 40)
+            dataSlice = list(row['data'])[-graphWidth:]
+
+            # Get filtered data to calculate min/max. Note that 'valid' data
+            # will have only valid values. Any invalid values would have been
+            # replaced with 'None' values. We can display this set using the
+            # 'sparklines' library. We continue refining the data by removing
+            # all 'None' values to get a 'clean' set, which we can use to
+            # establish min/max values for the set.
+            dataValid = [i if f451Common.is_valid(i, row['valid']) else None for i in dataSlice]
+            dataClean = [i for i in dataValid if i is not None]
+
+            # We set 'OK' flag to 'True' if current data point is valid or
+            # missing (i.e. None).
+            dataPt = dataSlice[-1] if f451Common.is_valid(dataSlice[-1], row['valid']) else None
+            dataPtOK = dataPt or dataSlice[-1] is None
+
+            # We determine up/down/sideways trend by looking at delate between
+            # current value and previous value. If current and/or previous value
+            # is 'None' for whatever reason, then we assume 'sideways' (0)trend.
+            dataPtPrev = (
+                dataSlice[-2] if f451Common.is_valid(dataSlice[-2], row['valid']) else None
+            )
+            dataPtDelta = f451Common.get_delta_range(dataPt, dataPtPrev, APP_DELTA_FACTOR)
+
+            # Update data set
+            dataSet['sparkData'] = dataValid
+            dataSet['sparkColors'] = _sparkline_colors(row['limits'])
+            dataSet['sparkMinMax'] = (
+                (min(dataClean), max(dataClean)) if any(dataClean) else (None, None)
+            )
+
+            dataSet['dataPt'] = dataPt
+            dataSet['dataPtOK'] = dataPtOK
+            dataSet['dataPtDelta'] = dataPtDelta
+            dataSet['dataPtColor'] = _dataPt_color(dataPt, row['limits'])
+
+            outData.append(dataSet)
+
+    return outData
 
 
 async def send_data(*args):
@@ -261,6 +364,7 @@ async def send_data(*args):
     print('Fake upload start ...')
     time.sleep(5)
     print('... fake upload end')
+
 
 async def upload_demo_data(*args, **kwargs):
     """Fake upload function
@@ -283,7 +387,7 @@ async def upload_demo_data(*args, **kwargs):
 
     # Send download speed data ?
     if upload.get('data') is not None:
-        sendQ.append(send_data()) # type: ignore
+        sendQ.append(send_data(upload.get('data'))) # type: ignore
 
     # deviceID = SENSE_HAT.get_ID(DEF_ID_PREFIX)
 
@@ -366,7 +470,6 @@ def btn_middle(event):
             SENSE_HAT.update_sleep_mode(True)
 
 
-
 APP_JOYSTICK_ACTIONS = {
     f451SenseHat.KWD_BTN_UP: btn_up,
     f451SenseHat.KWD_BTN_DWN: btn_down,
@@ -411,6 +514,75 @@ def update_SenseHat_LED(sense, data):
         sense.display_sparkle()
 
 
+def init_cli_parser():
+    """Initialize CLI (ArgParse) parser.
+
+    Initialize the ArgParse parser with the CLI 'arguments' and
+    return a new parser instance.
+
+    Returns:
+        ArgParse parser instance
+    """
+    parser = argparse.ArgumentParser(
+        prog=APP_NAME,
+        description=f"{APP_NAME} [v{APP_VERSION}] - collect internet speed test data using Speedtest CLI, and upload to Adafruit IO and/or Arduino Cloud.",
+        epilog="NOTE: This application requires active accounts with corresponding cloud services.",
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='store_true',
+        help="display script version number and exit",
+    )
+    parser.add_argument(
+        '-d', 
+        '--debug', 
+        action='store_true', 
+        help="run script in debug mode"
+    )
+    parser.add_argument(
+        '--noCLI',
+        action='store_true',
+        default=False,
+        help='do not display output on CLI',
+    )
+    parser.add_argument(
+        '--noLED',
+        action='store_true',
+        default=False,
+        help='do not display output on LED',
+    )
+    parser.add_argument(
+        '--progress',
+        action='store_true',
+        default=False,
+        help="show upload progress bar on LED",
+    )
+    parser.add_argument(
+        '--log',
+        action='store',
+        type=str,
+        help="name of log file",
+    )
+    parser.add_argument(
+        '--uploads',
+        action='store',
+        type=int,
+        default=-1,
+        help="number of uploads before exiting",
+    )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        default=False,
+        help="show output to CLI stdout",
+    )
+
+    return parser
+
+
 def init_app_runtime(config, cliArgs):
     """Initialize the 'runtime' variable
     
@@ -444,6 +616,16 @@ def init_app_runtime(config, cliArgs):
     runtime.numUploads = 0
 
     runtime.console = Console() # type: ignore
+
+    # Initialize UI for terminal
+    # screen = f451CLIUI.BaseUI()
+    # screen.initialize(
+    #     APP_NAME,
+    #     APP_NAME_SHORT,
+    #     APP_VERSION,
+    #     prep_data_for_screen(senseData.as_dict(), True),
+    #     not cliArgs.noCLI,
+    # )
 
     return runtime
 
@@ -524,7 +706,7 @@ def main(cliArgs=None):
 
             # Update Sense HAT prog bar as needed
             SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
-            
+
             # --- Get magic data ---
             #
             # screen.update_action('Reading sensors …')
@@ -589,7 +771,7 @@ def main(cliArgs=None):
                 time.sleep(app.ioWait)
 
                 # Update Sense HAT prog bar as needed
-                SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
+                # SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
 
         except KeyboardInterrupt:
             exitNow = True
