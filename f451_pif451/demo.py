@@ -143,7 +143,7 @@ def debug_config_info(cliArgs, console=None):
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
 
 
-def prep_data_for_sensehat(inData, ledWidth):
+def prep_data_for_sensehat(inData, ledWidth=0):
     """Prep data for Sense HAT
     
     This function will filter data to ensure we don't have incorrect 
@@ -394,12 +394,14 @@ def update_SenseHat_LED(sense, data):
 
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
-        dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
+        # dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
+        dataClean = prep_data_for_sensehat(data.number1.as_tuple())
         minMax = _minMax(data.number1.as_tuple().data)
         sense.display_as_graph(dataClean, minMax)
 
     elif sense.displMode == 2:
-        dataClean = prep_data_for_sensehat(data.number2.as_tuple(), sense.widthLED)
+        # dataClean = prep_data_for_sensehat(data.number2.as_tuple(), sense.widthLED)
+        dataClean = prep_data_for_sensehat(data.number2.as_tuple())
         minMax = _minMax(data.number2.as_tuple().data)
         sense.display_as_graph(dataClean, minMax)
 
