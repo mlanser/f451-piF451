@@ -375,6 +375,14 @@ APP_JOYSTICK_ACTIONS = {
 
 
 def update_SenseHat_LED(sense, data):
+    """Update Sense HAT LED display depending on display mode
+    
+    We check current display mode and then prep data as needed 
+    for display on LED.
+
+    Args:
+        data: full data set. We'll grab a slice from the end
+    """
     def _minMax(data):
         """Create min/max based on all collecxted data
         
@@ -400,6 +408,13 @@ def update_SenseHat_LED(sense, data):
 
 
 def init_app_runtime(config, cliArgs):
+    """Initialize the 'runtime' variable
+    
+    We use an object to hold all core runtime values, flags, etc. 
+    This makes it easier to send global values around the app as
+    a single entitye rather than having to manage a series of 
+    individual (global) values. 
+    """
     runtime = f451Common.Runtime()
 
     runtime.ioFreq = config.get(const.KWD_FREQ, const.DEF_FREQ)
@@ -494,18 +509,21 @@ def main(cliArgs=None):
 
     while not exitNow:
         try:
+            # fmt: off
             timeCurrent = time.time()
             app.timeSinceUpdate = timeCurrent - app.timeUpdate
             SENSE_HAT.update_sleep_mode(
-                (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime, cliArgs.noLED, SENSE_HAT.displSleepMode
+                (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime,   # Time to sleep?
+                cliArgs.noLED,                                                  # No LED?
+                SENSE_HAT.displSleepMode                                        # Already asleep?
             )
-
             # --- Get magic data ---
             #
             # screen.update_action('Reading sensors …')
             newData = get_random_demo_data()
             #
             # ----------------------
+            # fmt: on
 
             # Is it time to upload data?
             if app.timeSinceUpdate >= app.uploadDelay:
