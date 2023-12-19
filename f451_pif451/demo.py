@@ -362,6 +362,7 @@ def btn_middle(event):
             app.displayUpdate = time.time()
         else:
             SENSE_HAT.update_sleep_mode(True)
+            
 
 
 APP_JOYSTICK_ACTIONS = {
