@@ -143,7 +143,7 @@ def debug_config_info(cliArgs, console=None):
     LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
 
 
-def prep_data_for_sensehat(inData, ledWidth=0):
+def prep_data_for_sensehat(inData, lenSlice=0):
     """Prep data for Sense HAT
     
     This function will filter data to ensure we don't have incorrect 
@@ -161,8 +161,7 @@ def prep_data_for_sensehat(inData, ledWidth=0):
 
     Args:
         inData: 'DataUnit' named tuple with 'raw' data from sensors
-        ledWidth: width of LED display
-        allowNone: 
+        lenSlice: (optional) length of data slice
     
     Returns:
         'DataUnit' named tuple with the following fields:
@@ -172,8 +171,9 @@ def prep_data_for_sensehat(inData, ledWidth=0):
             label  = <label string>,
             limits = [list of limits]
     """
-    # Data slice we can display on Sense HAT LED
-    dataSlice = list(inData.data)[-ledWidth:]
+    # Data slice we want to send to Sense HAT. The 'f451 Labs SenseHat' library 
+    # will ulimately only display the last 8 values anyway.
+    dataSlice = list(inData.data)[-lenSlice:]
 
     # Return filtered data
     dataClean = [i if f451Common.is_valid(i, inData.valid) else 0 for i in dataSlice]
@@ -258,7 +258,9 @@ def init_cli_parser():
 
 async def send_data(*args):
     """Fake 'send' function"""
+    print('Fake upload start ...')
     time.sleep(5)
+    print('... fake upload end')
 
 async def upload_demo_data(*args, **kwargs):
     """Fake upload function
