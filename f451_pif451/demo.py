@@ -700,7 +700,7 @@ def main(cliArgs=None):
             app.timeSinceUpdate = timeCurrent - app.timeUpdate
             SENSE_HAT.update_sleep_mode(
                 (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime,   # Time to sleep?
-                cliArgs.noLED,                                                  # No LED?
+                # cliArgs.noLED,                                                  # No LED?
                 SENSE_HAT.displSleepMode                                        # Already asleep?
             )
 
