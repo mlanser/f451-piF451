@@ -65,3 +65,9 @@ class DemoData:
             self.number1.as_dict(),
             self.number2.as_dict(),
         ]
+    
+    def as_dict(self):
+        return {
+            'number1': self.number1.as_dict(),
+            'number2': self.number2.as_dict(),
+        }

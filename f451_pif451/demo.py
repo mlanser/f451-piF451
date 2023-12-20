@@ -52,10 +52,11 @@ from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
 
 from Adafruit_IO import RequestError, ThrottlingError
 
-# Install Rich 'traceback' and 'pprint' to 
+# Install Rich 'traceback' and 'pprint' to
 # make (debug) life is easier. Trust me!
 from rich.pretty import pprint
 from rich.traceback import install as install_rich_traceback
+
 install_rich_traceback(show_locals=True)
 
 
@@ -66,10 +67,8 @@ install_rich_traceback(show_locals=True)
 APP_VERSION = '0.0.0'
 APP_NAME = 'f451 Labs - piF451 Demo'
 APP_NAME_SHORT = 'Demo'
-APP_HOST = platform.node()          # Get device 'hostname'
 APP_LOG = 'f451-piF451-demo.log'    # Individual logs for devices with multiple apps
 APP_SETTINGS = 'settings.toml'      # Standard for all f451 Labs projects
-APP_DIR = Path(__file__).parent     # Find dir for this app
 
 APP_MIN_SENSOR_READ_WAIT = 1        # Min wait in sec between sensor reads
 APP_MIN_PROG_WAIT = 1               # Remaining min (loop) wait time to display prog bar
@@ -84,15 +83,89 @@ APP_DISPLAY_MODES = {
     f451SenseHat.KWD_DISPLAY_MAX: 2,
 }
 
+class AppRT(f451Common.Runtime):
+    def __init__(self, appName, appVersion, appNameShort=None, appLog=None, appSettings=None):
+        super().__init__(
+            appName, 
+            appVersion, 
+            appNameShort, 
+            appLog, 
+            appSettings,
+            platform.node(),        # Get device 'hostname'
+            Path(__file__).parent   # Find dir for this app
+        )
+        self.sensors = {}           # Placeholder for connected sensors  
+        
+    def init_runtime(self, cliArgs, data):
+        """Initialize the 'runtime' variable
+        
+        We use an object to hold all core runtime values, flags, etc. 
+        This makes it easier to send global values around the app as
+        a single entitye rather than having to manage a series of 
+        individual (global) values. 
+        """
+        # Load settings and initialize logger
+        self.config = f451Common.load_settings(self.appDir.joinpath(self.appSettings))
+        self.logger = f451Logger.Logger(self.config, LOGFILE=self.appLog)
+
+        self.ioFreq = self.config.get(const.KWD_FREQ, const.DEF_FREQ)
+        self.ioDelay = self.config.get(const.KWD_DELAY, const.DEF_DELAY)
+        self.ioWait = max(self.config.get(const.KWD_WAIT, const.DEF_WAIT), APP_MIN_SENSOR_READ_WAIT)
+        self.ioThrottle = self.config.get(const.KWD_THROTTLE, const.DEF_THROTTLE)
+        self.ioRounding = self.config.get(const.KWD_ROUNDING, const.DEF_ROUNDING)
+        self.ioUploadAndExit = False
+
+        # Update log file or level?
+        if cliArgs.debug:
+            self.logLvl = f451Logger.LOG_DEBUG
+            self.debugMode = True
+        else:
+            self.logLvl = self.config.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
+            self.debugMode = (self.logLvl == f451Logger.LOG_DEBUG)
+
+        self.logger.set_log_level(self.logLvl)
+
+        if cliArgs.log is not None:
+            self.logger.set_log_file(appRT.logLvl, cliArgs.log)
+
+        # Initialize various counters, etc.
+        self.timeSinceUpdate = float(0)
+        self.timeUpdate = time.time()
+        self.displayUpdate = self.timeUpdate
+        self.uploadDelay = self.ioDelay
+        self.maxUploads = int(cliArgs.uploads)
+        self.numUploads = 0
+
+        # Initialize UI for terminal
+        if cliArgs.noCLI or True:
+            self.console = Console() # type: ignore
+        else:
+            UI = f451CLIUI.BaseUI()
+            UI.initialize(
+                self.appName,
+                self.appNameShort,
+                self.appVersion,
+                prep_data_for_screen(data.as_dict(), True),
+                not cliArgs.noCLI,
+            )
+            self.console = UI # type: ignore
+
+    def add_sensor(self, sensorName, sensorType, *args, **kwargs):
+        self.sensors[sensorName] = sensorType(*args, **kwargs)
+
+# Define app runtime object and basic data unit
+appRT = AppRT(APP_NAME, APP_VERSION, APP_NAME_SHORT, APP_LOG, APP_SETTINGS)
+DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
+
 # Load settings
-CONFIG = f451Common.load_settings(APP_DIR.joinpath(APP_SETTINGS))
+# CONFIG = f451Common.load_settings(appRT.appDir.joinpath(APP_SETTINGS))
 
 # Initialize device instance which includes all sensors
 # and LED display on Sense HAT
-SENSE_HAT = f451SenseHat.SenseHat(CONFIG)
+# SENSE_HAT = f451SenseHat.SenseHat(CONFIG)
 
 # Initialize logger and IO cloud
-LOGGER = f451Logger.Logger(CONFIG, LOGFILE=APP_LOG)
+# LOGGER = f451Logger.Logger(CONFIG, LOGFILE=APP_LOG)
 
 # Verify that feeds exist
 # try:
@@ -105,7 +178,7 @@ LOGGER = f451Logger.Logger(CONFIG, LOGFILE=APP_LOG)
 #     sys.exit(1)
 
 # Define basic data unit
-DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
+# DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # fmt: on
 
 
@@ -123,37 +196,37 @@ def debug_config_info(cliArgs, console=None):
     if console:
         console.rule('Config Settings', style='grey', align='center')
     else:
-        LOGGER.log_debug("-- Config Settings --")
+        appRT.logger.log_debug('-- Config Settings --')
 
-    LOGGER.log_debug(f"DISPL ROT:   {SENSE_HAT.displRotation}")
-    LOGGER.log_debug(f"DISPL MODE:  {SENSE_HAT.displMode}")
-    LOGGER.log_debug(f"DISPL PROGR: {SENSE_HAT.displProgress}")
-    LOGGER.log_debug(f"SLEEP TIME:  {SENSE_HAT.displSleepTime}")
-    LOGGER.log_debug(f"SLEEP MODE:  {SENSE_HAT.displSleepMode}")
-    LOGGER.log_debug(f"IO DEL:      {CONFIG.get(const.KWD_DELAY, const.DEF_DELAY)}")
-    LOGGER.log_debug(f"IO WAIT:     {CONFIG.get(const.KWD_WAIT, const.DEF_WAIT)}")
-    LOGGER.log_debug(f"IO THROTTLE: {CONFIG.get(const.KWD_THROTTLE, const.DEF_THROTTLE)}")
+    appRT.logger.log_debug(f"DISPL ROT:   {appRT.sensors['SenseHat'].displRotation}")
+    appRT.logger.log_debug(f"DISPL MODE:  {appRT.sensors['SenseHat'].displMode}")
+    appRT.logger.log_debug(f"DISPL PROGR: {appRT.sensors['SenseHat'].displProgress}")
+    appRT.logger.log_debug(f"SLEEP TIME:  {appRT.sensors['SenseHat'].displSleepTime}")
+    appRT.logger.log_debug(f"SLEEP MODE:  {appRT.sensors['SenseHat'].displSleepMode}")
+    appRT.logger.log_debug(f'IO DEL:      {appRT.config.get(const.KWD_DELAY, const.DEF_DELAY)}')
+    appRT.logger.log_debug(f'IO WAIT:     {appRT.config.get(const.KWD_WAIT, const.DEF_WAIT)}')
+    appRT.logger.log_debug(f'IO THROTTLE: {appRT.config.get(const.KWD_THROTTLE, const.DEF_THROTTLE)}')
 
     # Display Raspberry Pi serial and Wi-Fi status
-    LOGGER.log_debug(f"Raspberry Pi serial: {f451Common.get_RPI_serial_num()}")
-    LOGGER.log_debug(
-        f"Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}"
+    appRT.logger.log_debug(f'Raspberry Pi serial: {f451Common.get_RPI_serial_num()}')
+    appRT.logger.log_debug(
+        f'Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}'
     )
 
     # Display CLI args
-    LOGGER.log_debug(f"CLI Args:\n{cliArgs}")
+    appRT.logger.log_debug(f'CLI Args:\n{cliArgs}')
 
 
 def prep_data_for_sensehat(inData, lenSlice=0):
     """Prep data for Sense HAT
-    
-    This function will filter data to ensure we don't have incorrect 
-    outliers (e.g. from faulty sensors, etc.). The final data set will 
-    have only valid values. Any invalid values will be replaced with 
+
+    This function will filter data to ensure we don't have incorrect
+    outliers (e.g. from faulty sensors, etc.). The final data set will
+    have only valid values. Any invalid values will be replaced with
     0's so that we can display the set on the Sense HAT LED.
-    
-    This will technically affect the min/max values for the set. However, 
-    we're displaying this data on an 8x8 LED. So visual 'accuracy' is 
+
+    This will technically affect the min/max values for the set. However,
+    we're displaying this data on an 8x8 LED. So visual 'accuracy' is
     already less than ideal ;-)
 
     NOTE: the data structure is more complex than we need for Sense HAT
@@ -163,7 +236,7 @@ def prep_data_for_sensehat(inData, lenSlice=0):
     Args:
         inData: 'DataUnit' named tuple with 'raw' data from sensors
         lenSlice: (optional) length of data slice
-    
+
     Returns:
         'DataUnit' named tuple with the following fields:
             data   = [list of values],
@@ -172,7 +245,7 @@ def prep_data_for_sensehat(inData, lenSlice=0):
             label  = <label string>,
             limits = [list of limits]
     """
-    # Data slice we want to send to Sense HAT. The 'f451 Labs SenseHat' library 
+    # Data slice we want to send to Sense HAT. The 'f451 Labs SenseHat' library
     # will ulimately only display the last 8 values anyway.
     dataSlice = list(inData.data)[-lenSlice:]
 
@@ -180,30 +253,30 @@ def prep_data_for_sensehat(inData, lenSlice=0):
     dataClean = [i if f451Common.is_valid(i, inData.valid) else 0 for i in dataSlice]
 
     return f451SenseData.DataUnit(
-        data = dataClean,
-        valid = inData.valid,
-        unit = inData.unit,
-        label = inData.label,
-        limits = inData.limits
+        data=dataClean,
+        valid=inData.valid,
+        unit=inData.unit,
+        label=inData.label,
+        limits=inData.limits,
     )
 
 
 def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
     """Prep data for display in terminal
 
-    We display a table in the terminal with a row for each data type. On 
-    each row, we the display label, last value (with unit), and a sparkline 
+    We display a table in the terminal with a row for each data type. On
+    each row, we the display label, last value (with unit), and a sparkline
     graph.
 
-    This function will filter data to ensure we don't have incorrect 
-    outliers (e.g. from faulty sensors, etc.). The final data set will 
-    have only valid values. Any invalid values will be replaced with 
+    This function will filter data to ensure we don't have incorrect
+    outliers (e.g. from faulty sensors, etc.). The final data set will
+    have only valid values. Any invalid values will be replaced with
     0's so that we can display the set as a sparkline graph.
-    
-    This will technically affect the min/max values for the set. However, 
+
+    This will technically affect the min/max values for the set. However,
     we're displaying this data in a table cells that will have about
-    40 columns, and each column is made up of block characters which 
-    can only show 8 different heights. So visual 'accuracy' is 
+    40 columns, and each column is made up of block characters which
+    can only show 8 different heights. So visual 'accuracy' is
     already less than ideal ;-)
 
     NOTE: We need to map the data sets agains a numeric range of 1-8 so
@@ -369,7 +442,7 @@ async def send_data(*args):
 async def upload_demo_data(*args, **kwargs):
     """Fake upload function
 
-    This helper function simulates parsing and uploading data 
+    This helper function simulates parsing and uploading data
     to some cloud service.
 
     Args:
@@ -387,9 +460,9 @@ async def upload_demo_data(*args, **kwargs):
 
     # Send download speed data ?
     if upload.get('data') is not None:
-        sendQ.append(send_data(upload.get('data'))) # type: ignore
+        sendQ.append(send_data(upload.get('data')))  # type: ignore
 
-    # deviceID = SENSE_HAT.get_ID(DEF_ID_PREFIX)
+    # deviceID = appRT.sensors['SenseHat'].get_ID(DEF_ID_PREFIX)
 
     await asyncio.gather(*sendQ)
 
@@ -400,10 +473,7 @@ def get_random_demo_data(limits=None):
     Returns:
         'namedtuple' 'DataUnit with random demo data
     """
-    return DataUnit(
-        number1 = random.randint(1, 200),
-        number2 = random.randint(0, 100)
-    )
+    return DataUnit(number1=random.randint(1, 200), number2=random.randint(0, 100))
 
 
 def btn_up(event):
@@ -411,11 +481,11 @@ def btn_up(event):
 
     Rotate display by -90 degrees and reset screen blanking
     """
-    global app
+    global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.display_rotate(-1)
-        app.displayUpdate = time.time()
+        appRT.sensors['SenseHat'].display_rotate(-1)
+        appRT.displayUpdate = time.time()
 
 
 def btn_down(event):
@@ -423,11 +493,11 @@ def btn_down(event):
 
     Rotate display by +90 degrees and reset screen blanking
     """
-    global app
+    global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.display_rotate(1)
-        app.displayUpdate = time.time()
+        appRT.sensors['SenseHat'].display_rotate(1)
+        appRT.displayUpdate = time.time()
 
 
 def btn_left(event):
@@ -435,11 +505,11 @@ def btn_left(event):
 
     Switch display mode by 1 mode and reset screen blanking
     """
-    global app
+    global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.update_display_mode(-1)
-        app.displayUpdate = time.time()
+        appRT.sensors['SenseHat'].update_display_mode(-1)
+        appRT.displayUpdate = time.time()
 
 
 def btn_right(event):
@@ -447,11 +517,11 @@ def btn_right(event):
 
     Switch display mode by 1 mode and reset screen blanking
     """
-    global app
+    global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        SENSE_HAT.update_display_mode(1)
-        app.displayUpdate = time.time()
+        appRT.sensors['SenseHat'].update_display_mode(1)
+        appRT.displayUpdate = time.time()
 
 
 def btn_middle(event):
@@ -459,15 +529,15 @@ def btn_middle(event):
 
     Turn display on/off
     """
-    global app
+    global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
         # Wake up?
-        if SENSE_HAT.displSleepMode:
-            SENSE_HAT.update_sleep_mode(False)
-            app.displayUpdate = time.time()
+        if appRT.sensors['SenseHat'].displSleepMode:
+            appRT.sensors['SenseHat'].update_sleep_mode(False)
+            appRT.displayUpdate = time.time()
         else:
-            SENSE_HAT.update_sleep_mode(True)
+            appRT.sensors['SenseHat'].update_sleep_mode(True)
 
 
 APP_JOYSTICK_ACTIONS = {
@@ -481,16 +551,17 @@ APP_JOYSTICK_ACTIONS = {
 
 def update_SenseHat_LED(sense, data):
     """Update Sense HAT LED display depending on display mode
-    
-    We check current display mode and then prep data as needed 
+
+    We check current display mode and then prep data as needed
     for display on LED.
 
     Args:
         data: full data set. We'll grab a slice from the end
     """
+
     def _minMax(data):
         """Create min/max based on all collecxted data
-        
+
         This will smooth out some hard edges that may occur
         when the data slice is to short.
         """
@@ -525,22 +596,17 @@ def init_cli_parser():
     """
     parser = argparse.ArgumentParser(
         prog=APP_NAME,
-        description=f"{APP_NAME} [v{APP_VERSION}] - collect internet speed test data using Speedtest CLI, and upload to Adafruit IO and/or Arduino Cloud.",
-        epilog="NOTE: This application requires active accounts with corresponding cloud services.",
+        description=f'{APP_NAME} [v{APP_VERSION}] - collect internet speed test data using Speedtest CLI, and upload to Adafruit IO and/or Arduino Cloud.',
+        epilog='NOTE: This application requires active accounts with corresponding cloud services.',
     )
 
     parser.add_argument(
         '-V',
         '--version',
         action='store_true',
-        help="display script version number and exit",
+        help='display script version number and exit',
     )
-    parser.add_argument(
-        '-d', 
-        '--debug', 
-        action='store_true', 
-        help="run script in debug mode"
-    )
+    parser.add_argument('-d', '--debug', action='store_true', help='run script in debug mode')
     parser.add_argument(
         '--noCLI',
         action='store_true',
@@ -557,77 +623,30 @@ def init_cli_parser():
         '--progress',
         action='store_true',
         default=False,
-        help="show upload progress bar on LED",
+        help='show upload progress bar on LED',
     )
     parser.add_argument(
         '--log',
         action='store',
         type=str,
-        help="name of log file",
+        help='name of log file',
     )
     parser.add_argument(
         '--uploads',
         action='store',
         type=int,
         default=-1,
-        help="number of uploads before exiting",
+        help='number of uploads before exiting',
     )
     parser.add_argument(
         '-v',
         '--verbose',
         action='store_true',
         default=False,
-        help="show output to CLI stdout",
+        help='show output to CLI stdout',
     )
 
     return parser
-
-
-def init_app_runtime(config, cliArgs):
-    """Initialize the 'runtime' variable
-    
-    We use an object to hold all core runtime values, flags, etc. 
-    This makes it easier to send global values around the app as
-    a single entitye rather than having to manage a series of 
-    individual (global) values. 
-    """
-    runtime = f451Common.Runtime()
-
-    runtime.ioFreq = config.get(const.KWD_FREQ, const.DEF_FREQ)
-    runtime.ioDelay = config.get(const.KWD_DELAY, const.DEF_DELAY)
-    runtime.ioWait = max(config.get(const.KWD_WAIT, const.DEF_WAIT), APP_MIN_SENSOR_READ_WAIT)
-    runtime.ioThrottle = config.get(const.KWD_THROTTLE, const.DEF_THROTTLE)
-    runtime.ioRounding = config.get(const.KWD_ROUNDING, const.DEF_ROUNDING)
-
-    runtime.ioUploadAndExit = False
-
-    if cliArgs.debug:
-        runtime.logLvl = f451Logger.LOG_DEBUG
-        runtime.debugMode = True
-    else:
-        runtime.logLvl = config.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
-        runtime.debugMode = (runtime.logLvl == f451Logger.LOG_DEBUG)
-
-    runtime.timeSinceUpdate = float(0)
-    runtime.timeUpdate = time.time()
-    runtime.displayUpdate = runtime.timeUpdate
-    runtime.uploadDelay = runtime.ioDelay
-    runtime.maxUploads = int(cliArgs.uploads)
-    runtime.numUploads = 0
-
-    runtime.console = Console() # type: ignore
-
-    # Initialize UI for terminal
-    # screen = f451CLIUI.BaseUI()
-    # screen.initialize(
-    #     APP_NAME,
-    #     APP_NAME_SHORT,
-    #     APP_VERSION,
-    #     prep_data_for_screen(senseData.as_dict(), True),
-    #     not cliArgs.noCLI,
-    # )
-
-    return runtime
 
 
 # =========================================================
@@ -651,9 +670,9 @@ def main(cliArgs=None):
         cliArgs:
             CLI arguments used to start application
     """
-    global LOGGER
-    global SENSE_HAT
-    global app
+    # global LOGGER
+    # global SENSE_HAT
+    global appRT
 
     # Parse CLI args and show 'help' and exit if no args
     cli = init_cli_parser()
@@ -667,45 +686,48 @@ def main(cliArgs=None):
         sys.exit(0)
 
     # Get core settings and initialize core data queue
-    app = init_app_runtime(CONFIG, cliArgs)
-    demoData = f451DemoData.DemoData(None, APP_MAX_DATA)
+    appData = f451DemoData.DemoData(None, APP_MAX_DATA)
+    appRT.init_runtime(cliArgs, appData)
+    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
 
-    # Update log file or level?
-    if cliArgs.debug:
-        LOGGER.set_log_level(f451Logger.LOG_DEBUG)
+    # Initialize device instance which includes all sensors
+    # and LED display on Sense HAT
+    # SENSE_HAT = f451SenseHat.SenseHat(appRT.)
 
-    if cliArgs.log is not None:
-        LOGGER.set_log_file(app.logLvl, cliArgs.log)
+    # # Update log file or level?
+    # if cliArgs.debug:
+    #     LOGGER.set_log_level(f451Logger.LOG_DEBUG)
+
+    # if cliArgs.log is not None:
+    #     LOGGER.set_log_file(appRT.logLvl, cliArgs.log)
 
     # Initialize Sense HAT joystick and LED display
-    SENSE_HAT.joystick_init(**APP_JOYSTICK_ACTIONS)
-    SENSE_HAT.display_init(**APP_DISPLAY_MODES)
-    SENSE_HAT.update_sleep_mode(cliArgs.noLED)
-    SENSE_HAT.displProgress = cliArgs.progress
+    appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
+    appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
+    appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)
+    appRT.sensors['SenseHat'].displProgress = cliArgs.progress
 
     # -- Main application loop --
+    appRT.sensors['SenseHat'].display_message(APP_NAME)
+    # appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
+    appRT.logger.log_info('-- START Data Logging --')
+
+    print('BEEP')
+
     exitNow = False
-    app.console.rule(style='grey', align='center') # type: ignore
-    SENSE_HAT.display_message(APP_NAME)
-    print(f"{APP_NAME} (v{APP_VERSION})")
-    print(f"Work start:  {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
-
-    # If log level <= INFO
-    LOGGER.log_info("-- START Data Logging --")
-
     while not exitNow:
         try:
             # fmt: off
             timeCurrent = time.time()
-            app.timeSinceUpdate = timeCurrent - app.timeUpdate
-            SENSE_HAT.update_sleep_mode(
-                (timeCurrent - app.displayUpdate) > SENSE_HAT.displSleepTime,   # Time to sleep?
-                # cliArgs.noLED,                                                  # No LED?
-                SENSE_HAT.displSleepMode                                        # Already asleep?
+            appRT.timeSinceUpdate = timeCurrent - appRT.timeUpdate
+            appRT.sensors['SenseHat'].update_sleep_mode(
+                (timeCurrent - appRT.displayUpdate) > appRT.sensors['SenseHat'].displSleepTime, # Time to sleep?
+                # cliArgs.noLED,                                                # Force no LED?
+                appRT.sensors['SenseHat'].displSleepMode                                        # Already asleep?
             )
 
             # Update Sense HAT prog bar as needed
-            SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
+            appRT.sensors['SenseHat'].display_progress(appRT.timeSinceUpdate / appRT.uploadDelay)
 
             # --- Get magic data ---
             #
@@ -716,7 +738,7 @@ def main(cliArgs=None):
             # fmt: on
 
             # Is it time to upload data?
-            if app.timeSinceUpdate >= app.uploadDelay:
+            if appRT.timeSinceUpdate >= appRT.uploadDelay:
                 try:
                     asyncio.run(
                         upload_demo_data(
@@ -726,31 +748,31 @@ def main(cliArgs=None):
                     )
 
                 except RequestError as e:
-                    LOGGER.log_error(f"Application terminated: {e}")
+                    appRT.logger.log_error(f'Application terminated: {e}')
                     sys.exit(1)
 
                 except ThrottlingError:
                     # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
-                    app.uploadDelay += app.ioThrottle
+                    appRT.uploadDelay += appRT.ioThrottle
 
                 else:
                     # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
-                    app.numUploads += 1
-                    app.uploadDelay = app.ioFreq
-                    exitNow = exitNow or app.ioUploadAndExit
-                    LOGGER.log_info(
-                        f"Uploaded: Magic #: {round(newData.number1, app.ioRounding)}"
+                    appRT.numUploads += 1
+                    appRT.uploadDelay = appRT.ioFreq
+                    exitNow = exitNow or appRT.ioUploadAndExit
+                    appRT.logger.log_info(
+                        f'Uploaded: Magic #: {round(newData.number1, appRT.ioRounding)}'
                     )
 
                 finally:
-                    app.timeUpdate = timeCurrent
-                    exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+                    appRT.timeUpdate = timeCurrent
+                    exitNow = (appRT.maxUploads > 0) and (appRT.numUploads >= appRT.maxUploads)
 
             # Update data set and display to terminal as needed
-            demoData.number1.data.append(newData.number1)
-            demoData.number2.data.append(newData.number2)
+            appData.number1.data.append(newData.number1)
+            appData.number2.data.append(newData.number2)
 
-            update_SenseHat_LED(SENSE_HAT, demoData)
+            update_SenseHat_LED(appRT.sensors['SenseHat'], appData)
 
             # Are we done? And do we have to wait a bit before next sensor read?
             if not exitNow:
@@ -768,30 +790,33 @@ def main(cliArgs=None):
                 # else:
                 #     screen.update_action()
                 #     time.sleep(app.ioWait)
-                time.sleep(app.ioWait)
+                time.sleep(appRT.ioWait)
 
                 # Update Sense HAT prog bar as needed
-                # SENSE_HAT.display_progress(app.timeSinceUpdate / app.uploadDelay)
+                # appRT.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
 
         except KeyboardInterrupt:
             exitNow = True
 
     # If log level <= INFO
-    LOGGER.log_info("-- END Data Logging --")
+    appRT.logger.log_info('-- END Data Logging --')
 
     # A bit of clean-up before we exit ...
-    SENSE_HAT.display_reset()
-    SENSE_HAT.display_off()
+    appRT.sensors['SenseHat'].display_reset()
+    appRT.sensors['SenseHat'].display_off()
 
     # ... and display summary info
-    print(f"Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}")
-    print(f"Num uploads: {app.numUploads}")
-    app.console.rule(style='grey', align='center') # type: ignore
+    print()
+    appRT.console.rule(f'{APP_NAME} (v{APP_VERSION})', style='grey', align='center')  # type: ignore
+    print(f'Work start:  {appRT.workStart:%a %b %-d, %Y at %-I:%M:%S %p}')
+    print(f'Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}')
+    print(f'Num uploads: {appRT.numUploads}')
+    appRT.console.rule(style='grey', align='center')  # type: ignore
     pprint(locals(), expand_all=True)
-    pprint(CONFIG, expand_all=True)
+    pprint(appRT.config, expand_all=True)
 
-    if app.debugMode:
-        debug_config_info(cliArgs, app.console)
+    if appRT.debugMode:
+        debug_config_info(cliArgs, appRT.console)
 
 
 # =========================================================
