@@ -65,7 +65,7 @@ install_rich_traceback(show_locals=True)
 # =========================================================
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
-APP_VERSION = '0.0.0'
+APP_VERSION = '0.5.2'
 APP_NAME = 'f451 Labs - piF451 Demo'
 APP_NAME_SHORT = 'Demo'
 APP_LOG = 'f451-piF451-demo.log'    # Individual logs for devices with multiple apps
