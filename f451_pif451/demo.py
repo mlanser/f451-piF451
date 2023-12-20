@@ -94,6 +94,7 @@ class AppRT(f451Common.Runtime):
             platform.node(),        # Get device 'hostname'
             Path(__file__).parent   # Find dir for this app
         )
+        self.feeds = {}             # Placeholder for cloud service feeds  
         self.sensors = {}           # Placeholder for connected sensors  
         
     def init_runtime(self, cliArgs, data):
@@ -153,19 +154,13 @@ class AppRT(f451Common.Runtime):
     def add_sensor(self, sensorName, sensorType, *args, **kwargs):
         self.sensors[sensorName] = sensorType(*args, **kwargs)
 
+    def add_feed(self, feedName, feedType, *args, **kwargs):
+        # self.feeds[feedName] = feedType(*args, **kwargs)
+        pass
+
 # Define app runtime object and basic data unit
 appRT = AppRT(APP_NAME, APP_VERSION, APP_NAME_SHORT, APP_LOG, APP_SETTINGS)
 DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
-
-# Load settings
-# CONFIG = f451Common.load_settings(appRT.appDir.joinpath(APP_SETTINGS))
-
-# Initialize device instance which includes all sensors
-# and LED display on Sense HAT
-# SENSE_HAT = f451SenseHat.SenseHat(CONFIG)
-
-# Initialize logger and IO cloud
-# LOGGER = f451Logger.Logger(CONFIG, LOGFILE=APP_LOG)
 
 # Verify that feeds exist
 # try:
@@ -176,9 +171,6 @@ DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # except RequestError as e:
 #     LOGGER.log_error(f"Application terminated due to REQUEST ERROR: {e}")
 #     sys.exit(1)
-
-# Define basic data unit
-# DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # fmt: on
 
 
@@ -670,8 +662,6 @@ def main(cliArgs=None):
         cliArgs:
             CLI arguments used to start application
     """
-    # global LOGGER
-    # global SENSE_HAT
     global appRT
 
     # Parse CLI args and show 'help' and exit if no args
@@ -688,18 +678,10 @@ def main(cliArgs=None):
     # Get core settings and initialize core data queue
     appData = f451DemoData.DemoData(None, APP_MAX_DATA)
     appRT.init_runtime(cliArgs, appData)
-    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
 
     # Initialize device instance which includes all sensors
     # and LED display on Sense HAT
-    # SENSE_HAT = f451SenseHat.SenseHat(appRT.)
-
-    # # Update log file or level?
-    # if cliArgs.debug:
-    #     LOGGER.set_log_level(f451Logger.LOG_DEBUG)
-
-    # if cliArgs.log is not None:
-    #     LOGGER.set_log_file(appRT.logLvl, cliArgs.log)
+    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
 
     # Initialize Sense HAT joystick and LED display
     appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
