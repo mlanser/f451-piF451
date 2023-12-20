@@ -17,8 +17,6 @@ keywords = ["f451"]
 dependencies = [
     "speedtest-cli",
     "f451-common",
-    "f451-logger",
-    "f451-cloud",
     "f451-sensehat",
 ]
 requires-python = ">=3.9"
