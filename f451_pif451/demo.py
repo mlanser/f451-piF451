@@ -42,7 +42,8 @@ from . import demo_data as f451DemoData
 
 import f451_cli_ui.cli_ui as f451CLIUI
 import f451_common.common as f451Common
-import f451_logger.logger as f451Logger
+import f451_common.logger as f451Logger
+import f451_common.cloud as f451Cloud
 
 import f451_sensehat.sensehat as f451SenseHat
 import f451_sensehat.sensehat_data as f451SenseData
