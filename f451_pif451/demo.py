@@ -336,16 +336,21 @@ def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_M
         Return:
             'list' with definitions for 'emph' param of 'sparklines' method
         """
-        colorMap = f451Common.get_tri_colors(customColors)
-
         # fmt: off
-        return [
-            f'{colorMap.high}:gt:{round(limits[2], 1)}',    # High   # type: ignore
-            f'{colorMap.normal}:eq:{round(limits[2], 1)}',  # Normal # type: ignore
-            f'{colorMap.normal}:lt:{round(limits[2], 1)}',  # Normal # type: ignore
-            f'{colorMap.low}:eq:{round(limits[1], 1)}',     # Low    # type: ignore
-            f'{colorMap.low}:lt:{round(limits[1], 1)}',     # Low    # type: ignore
-        ]
+        colors = None
+
+        if all(limits):
+            colorMap = f451Common.get_tri_colors(customColors)
+
+            colors = [
+                f'{colorMap.high}:gt:{round(limits[2], 1)}',    # High   # type: ignore
+                f'{colorMap.normal}:eq:{round(limits[2], 1)}',  # Normal # type: ignore
+                f'{colorMap.normal}:lt:{round(limits[2], 1)}',  # Normal # type: ignore
+                f'{colorMap.low}:eq:{round(limits[1], 1)}',     # Low    # type: ignore
+                f'{colorMap.low}:lt:{round(limits[1], 1)}',     # Low    # type: ignore
+            ]
+        
+        return colors
         # fmt: on
 
     def _dataPt_color(val, limits, default='', customColors=None):
@@ -363,7 +368,7 @@ def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_M
         color = default
         colorMap = f451Common.get_tri_colors(customColors)
 
-        if val is not None:
+        if val is not None and all(limits):
             if val > round(limits[2], 1):
                 color = colorMap.high
             elif val <= round(limits[1], 1):
@@ -380,7 +385,7 @@ def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_M
             # Create new crispy clean set :-)
             dataSet = {
                 'sparkData': [],
-                'sparkColors': [],
+                'sparkColors': None,
                 'sparkMinMax': (None, None),
                 'dataPt': None,
                 'dataPtOK': True,
@@ -556,14 +561,16 @@ APP_JOYSTICK_ACTIONS = {
 }
 
 
-def update_SenseHat_LED(sense, data):
+def update_SenseHat_LED(sense, data, colors=None):
     """Update Sense HAT LED display depending on display mode
 
     We check current display mode and then prep data as needed
     for display on LED.
 
     Args:
-        data: full data set. We'll grab a slice from the end
+        sense: hook to SenseHat object
+        data: full data set where we'll grab a slice from the end
+        colors: (optional) custom color map
     """
 
     def _minMax(data):
@@ -575,18 +582,21 @@ def update_SenseHat_LED(sense, data):
         scrubbed = [i for i in data if i is not None]
         return (min(scrubbed), max(scrubbed)) if scrubbed else (0, 0)
 
+    def _get_color_map(data, colors=None):
+        return f451Common.get_tri_colors(colors) if all(data.limits) else None
+
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
-        # dataClean = prep_data_for_sensehat(data.number1.as_tuple(), sense.widthLED)
         dataClean = prep_data_for_sensehat(data.number1.as_tuple())
         minMax = _minMax(data.number1.as_tuple().data)
-        sense.display_as_graph(dataClean, minMax)
+        colorMap = _get_color_map(dataClean, colors)
+        sense.display_as_graph(dataClean, minMax, colorMap)
 
     elif sense.displMode == 2:
-        # dataClean = prep_data_for_sensehat(data.number2.as_tuple(), sense.widthLED)
         dataClean = prep_data_for_sensehat(data.number2.as_tuple())
         minMax = _minMax(data.number2.as_tuple().data)
-        sense.display_as_graph(dataClean, minMax)
+        colorMap = _get_color_map(dataClean, colors)
+        sense.display_as_graph(dataClean, minMax, colorMap)
 
     else:  # Display sparkles
         sense.display_sparkle()
@@ -656,7 +666,7 @@ def init_cli_parser():
     return parser
 
 
-def main_loop(app, data, live=None):
+def main_loop(app, data, UI=False):
     exitNow = False
     while not exitNow:
         try:
@@ -676,7 +686,7 @@ def main_loop(app, data, live=None):
             #
             # screen.update_action('Reading sensors …')
             newData = get_random_demo_data()
-            if live is None:
+            if not UI:
                 print('BEEP')
             #
             # ----------------------
@@ -708,16 +718,27 @@ def main_loop(app, data, live=None):
                     app.logger.log_info(
                         f'Uploaded: Magic #: {round(newData.number1, app.ioRounding)}'
                     )
-
+                    if UI:
+                        app.console.update_upload_status(
+                            timeCurrent,
+                            f451CLIUI.STATUS_OK,
+                            timeCurrent + app.uploadDelay,
+                            app.numUploads,
+                            app.maxUploads,
+                        )
                 finally:
                     app.timeUpdate = timeCurrent
                     exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+                    if UI:
+                        app.console.update_action(f451CLIUI.STATUS_LBL_WAIT)
 
             # Update data set and display to terminal as needed
             data.number1.data.append(newData.number1)
             data.number2.data.append(newData.number2)
 
             update_SenseHat_LED(app.sensors['SenseHat'], data)
+            if UI:
+                app.console.update_data(prep_data_for_screen(data.as_dict()))
 
             # Are we done? And do we have to wait a bit before next sensor read?
             if not exitNow:
@@ -800,8 +821,8 @@ def main(cliArgs=None):
         main_loop(appRT, appData)
     else:
         appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
-        with Live(appRT.console.layout, screen=True, redirect_stderr=False) as live:  # noqa: F841 # type: ignore
-            main_loop(appRT, appData, live)
+        with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
+            main_loop(appRT, appData, True)
 
     # If log level <= INFO
     appRT.logger.log_info('-- END Data Logging --')

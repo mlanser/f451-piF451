@@ -56,7 +56,7 @@ class DemoData:
             deque([defVal] * maxLen, maxlen=maxLen),
             (0, 100),  # min/max range for valid data
             '%',
-            [None, None, None, None],
+            [10, 30, 70, 90],
             'Demo Pcnt',
         )
 
