@@ -597,7 +597,6 @@ def update_SenseHat_LED(sense, data, colors=None):
         dataClean = prep_data_for_sensehat(data.number2.as_tuple())
         colorMap = _get_color_map(dataClean, colors)
         sense.display_as_graph(dataClean, minMax, colorMap)
-        assert False
     else:  # Display sparkles
         sense.display_sparkle()
 
