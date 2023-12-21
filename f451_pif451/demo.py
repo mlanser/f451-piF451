@@ -49,6 +49,7 @@ import f451_sensehat.sensehat as f451SenseHat
 import f451_sensehat.sensehat_data as f451SenseData
 
 from rich.console import Console
+from rich.live import Live
 from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
 
 from Adafruit_IO import RequestError, ThrottlingError
@@ -139,7 +140,7 @@ class AppRT(f451Common.Runtime):
         self.numUploads = 0
 
         # Initialize UI for terminal
-        if cliArgs.noCLI or True:
+        if cliArgs.noCLI:
             self.console = Console() # type: ignore
         else:
             UI = f451CLIUI.BaseUI()
@@ -152,6 +153,51 @@ class AppRT(f451Common.Runtime):
             )
             self.console = UI # type: ignore
 
+    def debug(self, cliArgs=None):
+        """Print/log some basic debug info."""
+
+        if self.console:
+            self.console.rule('Config Settings', style='grey', align='center')
+        else:
+            self.logger.log_debug('-- Config Settings --')
+
+        self.logger.log_debug(f"DISPL ROT:   {self.sensors['SenseHat'].displRotation}")
+        self.logger.log_debug(f"DISPL MODE:  {self.sensors['SenseHat'].displMode}")
+        self.logger.log_debug(f"DISPL PROGR: {self.sensors['SenseHat'].displProgress}")
+        self.logger.log_debug(f"SLEEP TIME:  {self.sensors['SenseHat'].displSleepTime}")
+        self.logger.log_debug(f"SLEEP MODE:  {self.sensors['SenseHat'].displSleepMode}")
+
+        self.logger.log_debug(f'IO DEL:      {self.ioDelay}')
+        self.logger.log_debug(f'IO WAIT:     {self.ioWait}')
+        self.logger.log_debug(f'IO THROTTLE: {self.ioThrottle}')
+
+        # Display Raspberry Pi serial and Wi-Fi status
+        self.logger.log_debug(f'Raspberry Pi serial: {f451Common.get_RPI_serial_num()}')
+        self.logger.log_debug(
+            f'Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}'
+        )
+
+        # List CLI args
+        if cliArgs:
+            for key, val in vars(cliArgs).items():
+                appRT.logger.log_debug(f"CLI Arg '{key}': {val}")
+
+    def show_summary(self, cliArgs=None):
+        print()
+        self.console.rule(f'{self.appName} (v{self.appVersion})', style='grey', align='center')  # type: ignore
+        print(f'Work start:  {self.workStart:%a %b %-d, %Y at %-I:%M:%S %p}')
+        print(f'Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}')
+        print(f'Num uploads: {self.numUploads}')
+        self.console.rule('CONFIG', style='grey', align='center')  # type: ignore
+        pprint(self.config, expand_all=True)
+
+        if cliArgs:
+            self.console.rule('CLI Args', style='grey', align='center')  # type: ignore
+            pprint(vars(cliArgs), expand_all=True)
+
+        if self.debugMode:
+            appRT.debug(cliArgs)
+    
     def add_sensor(self, sensorName, sensorType, *args, **kwargs):
         self.sensors[sensorName] = sensorType(*args, **kwargs)
 
@@ -178,38 +224,6 @@ DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-def debug_config_info(cliArgs, console=None):
-    """Print/log some basic debug info.
-
-    Args:
-        cliArgs: CLI arguments used to start application
-        console: Optional console object
-    """
-
-    if console:
-        console.rule('Config Settings', style='grey', align='center')
-    else:
-        appRT.logger.log_debug('-- Config Settings --')
-
-    appRT.logger.log_debug(f"DISPL ROT:   {appRT.sensors['SenseHat'].displRotation}")
-    appRT.logger.log_debug(f"DISPL MODE:  {appRT.sensors['SenseHat'].displMode}")
-    appRT.logger.log_debug(f"DISPL PROGR: {appRT.sensors['SenseHat'].displProgress}")
-    appRT.logger.log_debug(f"SLEEP TIME:  {appRT.sensors['SenseHat'].displSleepTime}")
-    appRT.logger.log_debug(f"SLEEP MODE:  {appRT.sensors['SenseHat'].displSleepMode}")
-    appRT.logger.log_debug(f'IO DEL:      {appRT.config.get(const.KWD_DELAY, const.DEF_DELAY)}')
-    appRT.logger.log_debug(f'IO WAIT:     {appRT.config.get(const.KWD_WAIT, const.DEF_WAIT)}')
-    appRT.logger.log_debug(f'IO THROTTLE: {appRT.config.get(const.KWD_THROTTLE, const.DEF_THROTTLE)}')
-
-    # Display Raspberry Pi serial and Wi-Fi status
-    appRT.logger.log_debug(f'Raspberry Pi serial: {f451Common.get_RPI_serial_num()}')
-    appRT.logger.log_debug(
-        f'Wi-Fi: {(f451Common.STATUS_YES if f451Common.check_wifi() else f451Common.STATUS_UNKNOWN)}'
-    )
-
-    # Display CLI args
-    appRT.logger.log_debug(f'CLI Args:\n{cliArgs}')
-
-
 def prep_data_for_sensehat(inData, lenSlice=0):
     """Prep data for Sense HAT
 
@@ -642,6 +656,94 @@ def init_cli_parser():
     return parser
 
 
+def main_loop(app, data, live=None):
+    exitNow = False
+    while not exitNow:
+        try:
+            # fmt: off
+            timeCurrent = time.time()
+            app.timeSinceUpdate = timeCurrent - app.timeUpdate
+            app.sensors['SenseHat'].update_sleep_mode(
+                (timeCurrent - app.displayUpdate) > app.sensors['SenseHat'].displSleepTime, # Time to sleep?
+                # cliArgs.noLED,                                                            # Force no LED?
+                app.sensors['SenseHat'].displSleepMode                                      # Already asleep?
+            )
+
+            # Update Sense HAT prog bar as needed
+            app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
+
+            # --- Get magic data ---
+            #
+            # screen.update_action('Reading sensors …')
+            newData = get_random_demo_data()
+            if live is None:
+                print('BEEP')
+            #
+            # ----------------------
+            # fmt: on
+
+            # Is it time to upload data?
+            if app.timeSinceUpdate >= app.uploadDelay:
+                try:
+                    asyncio.run(
+                        upload_demo_data(
+                            data=newData.number1,
+                            deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
+                        )
+                    )
+
+                except RequestError as e:
+                    app.logger.log_error(f'Application terminated: {e}')
+                    sys.exit(1)
+
+                except ThrottlingError:
+                    # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
+                    app.uploadDelay += app.ioThrottle
+
+                else:
+                    # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
+                    app.numUploads += 1
+                    app.uploadDelay = app.ioFreq
+                    exitNow = exitNow or app.ioUploadAndExit
+                    app.logger.log_info(
+                        f'Uploaded: Magic #: {round(newData.number1, app.ioRounding)}'
+                    )
+
+                finally:
+                    app.timeUpdate = timeCurrent
+                    exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+
+            # Update data set and display to terminal as needed
+            data.number1.data.append(newData.number1)
+            data.number2.data.append(newData.number2)
+
+            update_SenseHat_LED(app.sensors['SenseHat'], data)
+
+            # Are we done? And do we have to wait a bit before next sensor read?
+            if not exitNow:
+                # If we'tre not done and there's a substantial wait before we can
+                # read the sensors again (e.g. we only want to read sensors every
+                # few minutes for whatever reason), then lets display and update
+                # the progress bar as needed. Once the wait is done, we can go
+                # through this whole loop all over again ... phew!
+                # if app.ioWait > APP_MIN_PROG_WAIT:
+                #     screen.update_progress(None, 'Waiting for sensors …')
+                #     for i in range(app.ioWait):
+                #         screen.update_progress(int(i / app.ioWait * 100))
+                #         time.sleep(APP_WAIT_1SEC)
+                #     screen.update_action()
+                # else:
+                #     screen.update_action()
+                #     time.sleep(app.ioWait)
+                time.sleep(app.ioWait)
+
+                # Update Sense HAT prog bar as needed
+                # app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
+
+        except KeyboardInterrupt:
+            exitNow = True
+
+
 # =========================================================
 #      M A I N   F U N C T I O N    /   A C T I O N S
 # =========================================================
@@ -681,10 +783,10 @@ def main(cliArgs=None):
     appRT.init_runtime(cliArgs, appData)
 
     # Initialize device instance which includes all sensors
-    # and LED display on Sense HAT
+    # and LED display on Sense HAT. Also initialize joystick
+    # events and set 'sleep' and 'display' modes. 
+    #  
     appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
-
-    # Initialize Sense HAT joystick and LED display
     appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
     appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
     appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)
@@ -692,94 +794,14 @@ def main(cliArgs=None):
 
     # -- Main application loop --
     appRT.sensors['SenseHat'].display_message(APP_NAME)
-    # appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
     appRT.logger.log_info('-- START Data Logging --')
 
-    print('BEEP')
-
-    exitNow = False
-    while not exitNow:
-        try:
-            # fmt: off
-            timeCurrent = time.time()
-            appRT.timeSinceUpdate = timeCurrent - appRT.timeUpdate
-            appRT.sensors['SenseHat'].update_sleep_mode(
-                (timeCurrent - appRT.displayUpdate) > appRT.sensors['SenseHat'].displSleepTime, # Time to sleep?
-                # cliArgs.noLED,                                                # Force no LED?
-                appRT.sensors['SenseHat'].displSleepMode                                        # Already asleep?
-            )
-
-            # Update Sense HAT prog bar as needed
-            appRT.sensors['SenseHat'].display_progress(appRT.timeSinceUpdate / appRT.uploadDelay)
-
-            # --- Get magic data ---
-            #
-            # screen.update_action('Reading sensors …')
-            newData = get_random_demo_data()
-            #
-            # ----------------------
-            # fmt: on
-
-            # Is it time to upload data?
-            if appRT.timeSinceUpdate >= appRT.uploadDelay:
-                try:
-                    asyncio.run(
-                        upload_demo_data(
-                            data=newData.number1,
-                            deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
-                        )
-                    )
-
-                except RequestError as e:
-                    appRT.logger.log_error(f'Application terminated: {e}')
-                    sys.exit(1)
-
-                except ThrottlingError:
-                    # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
-                    appRT.uploadDelay += appRT.ioThrottle
-
-                else:
-                    # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
-                    appRT.numUploads += 1
-                    appRT.uploadDelay = appRT.ioFreq
-                    exitNow = exitNow or appRT.ioUploadAndExit
-                    appRT.logger.log_info(
-                        f'Uploaded: Magic #: {round(newData.number1, appRT.ioRounding)}'
-                    )
-
-                finally:
-                    appRT.timeUpdate = timeCurrent
-                    exitNow = (appRT.maxUploads > 0) and (appRT.numUploads >= appRT.maxUploads)
-
-            # Update data set and display to terminal as needed
-            appData.number1.data.append(newData.number1)
-            appData.number2.data.append(newData.number2)
-
-            update_SenseHat_LED(appRT.sensors['SenseHat'], appData)
-
-            # Are we done? And do we have to wait a bit before next sensor read?
-            if not exitNow:
-                # If we'tre not done and there's a substantial wait before we can
-                # read the sensors again (e.g. we only want to read sensors every
-                # few minutes for whatever reason), then lets display and update
-                # the progress bar as needed. Once the wait is done, we can go
-                # through this whole loop all over again ... phew!
-                # if app.ioWait > APP_MIN_PROG_WAIT:
-                #     screen.update_progress(None, 'Waiting for sensors …')
-                #     for i in range(app.ioWait):
-                #         screen.update_progress(int(i / app.ioWait * 100))
-                #         time.sleep(APP_WAIT_1SEC)
-                #     screen.update_action()
-                # else:
-                #     screen.update_action()
-                #     time.sleep(app.ioWait)
-                time.sleep(appRT.ioWait)
-
-                # Update Sense HAT prog bar as needed
-                # appRT.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-        except KeyboardInterrupt:
-            exitNow = True
+    if cliArgs.noCLI:
+        main_loop(appRT, appData)
+    else:
+        appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
+        with Live(appRT.console.layout, screen=True, redirect_stderr=False) as live:  # noqa: F841 # type: ignore
+            main_loop(appRT, appData, live)
 
     # If log level <= INFO
     appRT.logger.log_info('-- END Data Logging --')
@@ -788,18 +810,12 @@ def main(cliArgs=None):
     appRT.sensors['SenseHat'].display_reset()
     appRT.sensors['SenseHat'].display_off()
 
-    # ... and display summary info
-    print()
-    appRT.console.rule(f'{APP_NAME} (v{APP_VERSION})', style='grey', align='center')  # type: ignore
-    print(f'Work start:  {appRT.workStart:%a %b %-d, %Y at %-I:%M:%S %p}')
-    print(f'Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}')
-    print(f'Num uploads: {appRT.numUploads}')
-    appRT.console.rule(style='grey', align='center')  # type: ignore
-    pprint(locals(), expand_all=True)
-    pprint(appRT.config, expand_all=True)
+    # Show session summary
+    appRT.show_summary(cliArgs)
 
-    if appRT.debugMode:
-        debug_config_info(cliArgs, appRT.console)
+    appRT.console.rule('LOCALS', style='grey', align='center')  # type: ignore
+    pprint(locals(), expand_all=True)
+    appRT.console.rule(style='grey', align='center')  # type: ignore
 
 
 # =========================================================
