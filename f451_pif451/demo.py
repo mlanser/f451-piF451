@@ -224,7 +224,7 @@ DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-def prep_data_for_sensehat(inData, lenSlice=0):
+def prep_data_for_sensehat(inData, minMax, lenSlice=0):
     """Prep data for Sense HAT
 
     This function will filter data to ensure we don't have incorrect
@@ -242,6 +242,7 @@ def prep_data_for_sensehat(inData, lenSlice=0):
 
     Args:
         inData: 'DataUnit' named tuple with 'raw' data from sensors
+        minMax: 'tuple' with min/max for overall data set
         lenSlice: (optional) length of data slice
 
     Returns:
@@ -258,9 +259,10 @@ def prep_data_for_sensehat(inData, lenSlice=0):
 
     # Return filtered data
     dataClean = [i if f451Common.is_valid(i, inData.valid) else 0 for i in dataSlice]
+    dataScaled = [f451Common.num_to_range(i, minMax, (0, 8)) for i in dataClean]
 
     return f451SenseData.DataUnit(
-        data=dataClean,
+        data=dataScaled,
         valid=inData.valid,
         unit=inData.unit,
         label=inData.label,
@@ -582,21 +584,27 @@ def update_SenseHat_LED(sense, data, colors=None):
         scrubbed = [i for i in data if i is not None]
         return (min(scrubbed), max(scrubbed)) if scrubbed else (0, 0)
 
+    def _minMaxScaled(minMax):
+        return (
+            f451Common.num_to_range(minMax[0], minMax, (0, 8)), 
+            f451Common.num_to_range(minMax[1], minMax, (0, 8))
+        )
+
     def _get_color_map(data, colors=None):
         return f451Common.get_tri_colors(colors, True) if all(data.limits) else None
 
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
-        dataClean = prep_data_for_sensehat(data.number1.as_tuple())
         minMax = _minMax(data.number1.as_tuple().data)
+        dataClean = prep_data_for_sensehat(data.number1.as_tuple(), minMax)
         colorMap = _get_color_map(dataClean, colors)
-        sense.display_as_graph(dataClean, minMax, colorMap)
+        sense.display_as_graph(dataClean, _minMaxScaled(minMax), colorMap)
 
     elif sense.displMode == 2:
-        dataClean = prep_data_for_sensehat(data.number2.as_tuple())
         minMax = _minMax(data.number2.as_tuple().data)
+        dataClean = prep_data_for_sensehat(data.number2.as_tuple(), minMax)
         colorMap = _get_color_map(dataClean, colors)
-        sense.display_as_graph(dataClean, minMax, colorMap)
+        sense.display_as_graph(dataClean, _minMaxScaled(minMax), colorMap)
 
     else:  # Display sparkles
         sense.display_sparkle()
