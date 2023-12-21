@@ -583,7 +583,7 @@ def update_SenseHat_LED(sense, data, colors=None):
         return (min(scrubbed), max(scrubbed)) if scrubbed else (0, 0)
 
     def _get_color_map(data, colors=None):
-        return f451Common.get_tri_colors(colors) if all(data.limits) else None
+        return f451Common.get_tri_colors(colors, True) if all(data.limits) else None
 
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
