@@ -96,8 +96,6 @@ class AppRT(f451Common.Runtime):
             platform.node(),        # Get device 'hostname'
             Path(__file__).parent   # Find dir for this app
         )
-        self.feeds = {}             # Placeholder for cloud service feeds  
-        self.sensors = {}           # Placeholder for connected sensors  
         
     def init_runtime(self, cliArgs, data):
         """Initialize the 'runtime' variable
@@ -105,7 +103,11 @@ class AppRT(f451Common.Runtime):
         We use an object to hold all core runtime values, flags, etc. 
         This makes it easier to send global values around the app as
         a single entitye rather than having to manage a series of 
-        individual (global) values. 
+        individual (global) values.
+
+        Args:
+            cliArgs: holds user-supplied values from ArgParse
+            data: general data set (used to create CLI UI table rows, etc.)
         """
         # Load settings and initialize logger
         self.config = f451Common.load_settings(self.appDir.joinpath(self.appSettings))
@@ -153,13 +155,15 @@ class AppRT(f451Common.Runtime):
             )
             self.console = UI # type: ignore
 
-    def debug(self, cliArgs=None):
-        """Print/log some basic debug info."""
+    def debug(self, cli=None, data=None):
+        """Print/log some basic debug info.
+        
+        Args:
+            cli: CLI args
+            data: app data
+        """
 
-        if self.console:
-            self.console.rule('Config Settings', style='grey', align='center')
-        else:
-            self.logger.log_debug('-- Config Settings --')
+        self.console.rule('Config Settings', style='grey', align='center')
 
         self.logger.log_debug(f"DISPL ROT:   {self.sensors['SenseHat'].displRotation}")
         self.logger.log_debug(f"DISPL MODE:  {self.sensors['SenseHat'].displMode}")
@@ -178,32 +182,33 @@ class AppRT(f451Common.Runtime):
         )
 
         # List CLI args
-        if cliArgs:
-            for key, val in vars(cliArgs).items():
+        if cli:
+            for key, val in vars(cli).items():
                 appRT.logger.log_debug(f"CLI Arg '{key}': {val}")
 
-    def show_summary(self, cliArgs=None):
+        # List config settings
+        self.console.rule('CONFIG', style='grey', align='center')  # type: ignore
+        pprint(self.config, expand_all=True)
+
+        if data:
+            self.console.rule('APP DATA', style='grey', align='center')  # type: ignore
+            pprint(data.as_dict(), expand_all=True)
+
+        # Display nice border below everything
+        appRT.console.rule(style='grey', align='center')  # type: ignore
+
+
+    def show_summary(self, cli=None, data=None):
         print()
         self.console.rule(f'{self.appName} (v{self.appVersion})', style='grey', align='center')  # type: ignore
         print(f'Work start:  {self.workStart:%a %b %-d, %Y at %-I:%M:%S %p}')
         print(f'Work end:    {(datetime.now()):%a %b %-d, %Y at %-I:%M:%S %p}')
         print(f'Num uploads: {self.numUploads}')
-        self.console.rule('CONFIG', style='grey', align='center')  # type: ignore
-        pprint(self.config, expand_all=True)
 
-        if cliArgs:
-            self.console.rule('CLI Args', style='grey', align='center')  # type: ignore
-            pprint(vars(cliArgs), expand_all=True)
-
+        # Show config info, etc. if in 'debug' mode
         if self.debugMode:
-            appRT.debug(cliArgs)
-    
-    def add_sensor(self, sensorName, sensorType, *args, **kwargs):
-        self.sensors[sensorName] = sensorType(*args, **kwargs)
+            self.debug(cli, data)
 
-    def add_feed(self, feedName, feedType, *args, **kwargs):
-        # self.feeds[feedName] = feedType(*args, **kwargs)
-        pass
 
 # Define app runtime object and basic data unit
 appRT = AppRT(APP_NAME, APP_VERSION, APP_NAME_SHORT, APP_LOG, APP_SETTINGS)
@@ -805,7 +810,6 @@ def main(cliArgs=None):
     # Initialize device instance which includes all sensors
     # and LED display on Sense HAT. Also initialize joystick
     # events and set 'sleep' and 'display' modes. 
-    #  
     appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
     appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
     appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
@@ -823,19 +827,14 @@ def main(cliArgs=None):
         with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
             main_loop(appRT, appData, True)
 
-    # If log level <= INFO
     appRT.logger.log_info('-- END Data Logging --')
 
-    # A bit of clean-up before we exit ...
+    # A bit of clean-up before we exit
     appRT.sensors['SenseHat'].display_reset()
     appRT.sensors['SenseHat'].display_off()
 
     # Show session summary
-    appRT.show_summary(cliArgs)
-
-    appRT.console.rule('LOCALS', style='grey', align='center')  # type: ignore
-    pprint(locals(), expand_all=True)
-    appRT.console.rule(style='grey', align='center')  # type: ignore
+    appRT.show_summary(cliArgs, appData)
 
 
 # =========================================================
