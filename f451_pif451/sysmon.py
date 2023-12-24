@@ -198,7 +198,7 @@ class AppRT(f451Common.Runtime):
                 self.appName,
                 self.appNameShort,
                 self.appVersion,
-                prep_data_for_screen(data.as_dict(), True),
+                prep_data_for_console(data.as_dict(), True),
                 not cliArgs.noCLI,
             )
             self.console = UI # type: ignore
@@ -350,7 +350,7 @@ def prep_data_for_sensehat(inData, lenSlice=0):
     )
 
 
-def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
+def prep_data_for_console(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
     """Prep data for display in terminal
 
     We display a table in the terminal with a row for each data type. On
@@ -857,7 +857,7 @@ def main_loop(app, data, cliUI=False):
             data.ping.data.append(ping)
 
             update_SenseHat_LED(app.sensors['SenseHat'], data)
-            app.update_data(cliUI, prep_data_for_screen(data.as_dict()))
+            app.update_data(cliUI, prep_data_for_console(data.as_dict()))
 
             # Are we done? And do we have to wait a bit before next sensor read?
             if not exitNow:

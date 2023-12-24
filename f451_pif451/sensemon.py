@@ -176,7 +176,7 @@ class AppRT(f451Common.Runtime):
                 self.appName,
                 self.appNameShort,
                 self.appVersion,
-                prep_data_for_screen(data.as_dict(), True),
+                prep_data_for_console(data.as_dict(), True),
                 not cliArgs.noCLI,
             )
             self.console = UI # type: ignore
@@ -330,7 +330,7 @@ def prep_data_for_sensehat(inData, lenSlice=0):
     )
 
 
-def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
+def prep_data_for_console(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
     """Prep data for display in terminal
 
     We display a table in the terminal with a row for each data type. On
@@ -770,111 +770,110 @@ def main_loop(app, data, cliUI=False):
     # Set 'exit' flag and start the loop!
     exitNow = False
     while not exitNow:
-        try:
-            # fmt: off
-            timeCurrent = time.time()
-            app.timeSinceUpdate = timeCurrent - app.timeUpdate
-            app.sensors['SenseHat'].update_sleep_mode(
-                (timeCurrent - app.displayUpdate) > app.sensors['SenseHat'].displSleepTime, # Time to sleep?
-                # cliArgs.noLED,                                                            # Force no LED?
-                app.sensors['SenseHat'].displSleepMode                                      # Already asleep?
-            )
+        # fmt: off
+        timeCurrent = time.time()
+        app.timeSinceUpdate = timeCurrent - app.timeUpdate
+        app.sensors['SenseHat'].update_sleep_mode(
+            (timeCurrent - app.displayUpdate) > app.sensors['SenseHat'].displSleepTime, # Time to sleep?
+            # cliArgs.noLED,                                                            # Force no LED?
+            app.sensors['SenseHat'].displSleepMode                                      # Already asleep?
+        )
+
+        # Update Sense HAT prog bar as needed
+        app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
+
+        # --- Get magic data ---
+        #
+        app.update_action(cliUI, 'Reading sensors …')
+        # Get raw temp from sensor
+        tempRaw = tempComp = app.sensors['SenseHat'].get_temperature()
+
+        # Do we need to compensate for CPU temp?
+        if app.tempCompYN:
+            # Get current CPU temp, add to queue, and calculate new average
+            #
+            # NOTE: This feature relies on the 'vcgencmd' which is found on
+            #       RPIs. If this is not run on a RPI (e.g. during testing),
+            #       then we need to neutralize the 'cpuTemp' compensation.
+            cpuTempsQ.append(app.sensors['SenseHat'].get_CPU_temp(False))
+            cpuTempAvg = sum(cpuTempsQ) / float(app.cpuTempsQMaxLen)
+
+            # Smooth out with some averaging to decrease jitter
+            tempComp = tempRaw - ((cpuTempAvg - tempRaw) / app.tempCompFactor)
+
+        # Get barometric pressure and humidity data
+        pressRaw = app.sensors['SenseHat'].get_pressure()
+        humidRaw = app.sensors['SenseHat'].get_humidity()
+        #
+        # ----------------------
+        # fmt: on
+
+        # Is it time to upload data?
+        if app.timeSinceUpdate >= app.uploadDelay:
+            try:
+                asyncio.run(
+                    upload_sensor_data(
+                        app,
+                        {
+                            const.KWD_DATA_TEMPS: round(tempComp, app.ioRounding),
+                            const.KWD_DATA_PRESS: round(pressRaw, app.ioRounding),
+                            const.KWD_DATA_HUMID: round(humidRaw, app.ioRounding),
+                        },
+                        deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
+                    )
+                )
+
+            except RequestError as e:
+                app.logger.log_error(f'Application terminated: {e}')
+                sys.exit(1)
+
+            except ThrottlingError:
+                # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
+                app.uploadDelay += app.ioThrottle
+
+            except KeyboardInterrupt:
+                exitNow = True
+
+            else:
+                # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
+                app.numUploads += 1
+                app.uploadDelay = app.ioFreq
+                exitNow = exitNow or app.ioUploadAndExit
+                app.logger.log_info(
+                    f'Uploaded: TEMP: {round(tempComp, app.ioRounding)} - PRESS: {round(pressRaw, app.ioRounding)} - HUMID: {round(humidRaw, app.ioRounding)}'
+                )
+                app.update_upload_status(
+                    cliUI,
+                    timeCurrent,
+                    f451CLIUI.STATUS_OK,
+                    timeCurrent + app.uploadDelay,
+                    app.numUploads,
+                    app.maxUploads,
+                )
+            finally:
+                app.timeUpdate = timeCurrent
+                exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+                app.update_action(cliUI, None)
+
+        # Update data set and display to terminal as needed
+        data.temperature.data.append(tempComp)
+        data.pressure.data.append(pressRaw)
+        data.humidity.data.append(humidRaw)
+
+        update_SenseHat_LED(app.sensors['SenseHat'], data)
+        app.update_data(cliUI, prep_data_for_console(data.as_dict()))
+
+        # Are we done? And do we have to wait a bit before next sensor read?
+        if not exitNow:
+            # If we're not done and there's a substantial wait before we can
+            # read the sensors again (e.g. we only want to read sensors every
+            # few minutes for whatever reason), then lets display and update
+            # the progress bar as needed. Once the wait is done, we can go
+            # through this whole loop all over again ... phew!
+            hurry_up_and_wait(app, cliUI)
 
             # Update Sense HAT prog bar as needed
             app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-            # --- Get magic data ---
-            #
-            app.update_action(cliUI, 'Reading sensors …')
-            # Get raw temp from sensor
-            tempRaw = tempComp = app.sensors['SenseHat'].get_temperature()
-
-            # Do we need to compensate for CPU temp?
-            if app.tempCompYN:
-                # Get current CPU temp, add to queue, and calculate new average
-                #
-                # NOTE: This feature relies on the 'vcgencmd' which is found on
-                #       RPIs. If this is not run on a RPI (e.g. during testing),
-                #       then we need to neutralize the 'cpuTemp' compensation.
-                cpuTempsQ.append(app.sensors['SenseHat'].get_CPU_temp(False))
-                cpuTempAvg = sum(cpuTempsQ) / float(app.cpuTempsQMaxLen)
-
-                # Smooth out with some averaging to decrease jitter
-                tempComp = tempRaw - ((cpuTempAvg - tempRaw) / app.tempCompFactor)
-
-            # Get barometric pressure and humidity data
-            pressRaw = app.sensors['SenseHat'].get_pressure()
-            humidRaw = app.sensors['SenseHat'].get_humidity()
-            #
-            # ----------------------
-            # fmt: on
-
-            # Is it time to upload data?
-            if app.timeSinceUpdate >= app.uploadDelay:
-                try:
-                    asyncio.run(
-                        upload_sensor_data(
-                            app,
-                            {
-                                const.KWD_DATA_TEMPS: round(tempComp, app.ioRounding),
-                                const.KWD_DATA_PRESS: round(pressRaw, app.ioRounding),
-                                const.KWD_DATA_HUMID: round(humidRaw, app.ioRounding),
-                            },
-                            deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
-                        )
-                    )
-
-                except RequestError as e:
-                    app.logger.log_error(f'Application terminated: {e}')
-                    sys.exit(1)
-
-                except ThrottlingError:
-                    # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
-                    app.uploadDelay += app.ioThrottle
-
-                else:
-                    # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
-                    app.numUploads += 1
-                    app.uploadDelay = app.ioFreq
-                    exitNow = exitNow or app.ioUploadAndExit
-                    app.logger.log_info(
-                        f'Uploaded: TEMP: {round(tempComp, app.ioRounding)} - PRESS: {round(pressRaw, app.ioRounding)} - HUMID: {round(humidRaw, app.ioRounding)}'
-                    )
-                    app.update_upload_status(
-                        cliUI,
-                        timeCurrent,
-                        f451CLIUI.STATUS_OK,
-                        timeCurrent + app.uploadDelay,
-                        app.numUploads,
-                        app.maxUploads,
-                    )
-                finally:
-                    app.timeUpdate = timeCurrent
-                    exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
-                    app.update_action(cliUI, None)
-
-            # Update data set and display to terminal as needed
-            data.temperature.data.append(tempComp)
-            data.pressure.data.append(pressRaw)
-            data.humidity.data.append(humidRaw)
-
-            update_SenseHat_LED(app.sensors['SenseHat'], data)
-            app.update_data(cliUI, prep_data_for_screen(data.as_dict()))
-
-            # Are we done? And do we have to wait a bit before next sensor read?
-            if not exitNow:
-                # If we're not done and there's a substantial wait before we can
-                # read the sensors again (e.g. we only want to read sensors every
-                # few minutes for whatever reason), then lets display and update
-                # the progress bar as needed. Once the wait is done, we can go
-                # through this whole loop all over again ... phew!
-                hurry_up_and_wait(app, cliUI)
-
-                # Update Sense HAT prog bar as needed
-                app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-        except KeyboardInterrupt:
-            exitNow = True
 
 
 # =========================================================
@@ -950,12 +949,16 @@ def main(cliArgs=None):
     # -- Main application loop --
     appRT.logger.log_info('-- START Data Logging --')
 
-    if cliArgs.noCLI:
-        main_loop(appRT, appData)
-    else:
-        appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
-        with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
-            main_loop(appRT, appData, True)
+    try: 
+        if cliArgs.noCLI:
+            main_loop(appRT, appData)
+        else:
+            appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
+            with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
+                main_loop(appRT, appData, True)
+
+    except KeyboardInterrupt:
+        pass
 
     appRT.logger.log_info('-- END Data Logging --')
 
