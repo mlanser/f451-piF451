@@ -9,9 +9,6 @@
 AIO_ID = "<ADAFRUIT IO USERNAME>"
 AIO_KEY = "<ADAFRUIT IO KEY>"
 
-FEED_TEMPS = "<ADAFRUIT IO FEED KEY FOR TEMPERATURE DATA>"
-FEED_PRESS = "<ADAFRUIT IO FEED KEY FOR PRESSURE DATA>"
-FEED_HUMID = "<ADAFRUIT IO FEED KEY FOR HUMIDITY DATA>"
 FEED_DWNLD = <ADAFRUIT IO FEED KEY FOR DOWNLOAD SPEED DATA>"
 FEED_UPLD = "<ADAFRUIT IO FEED KEY FOR UPLOAD SPEED DATA>"
 FEED_PING = "<ADAFRUIT IO FEED KEY FOR PING DATA>"
@@ -19,9 +16,6 @@ FEED_PING = "<ADAFRUIT IO FEED KEY FOR PING DATA>"
 # -- Arduino Cloud ----------------------------------------
 ARD_ID = "<ARDUINO CLOUD ID>"
 ARD_KEY = "<ARDUINO CLOUD KEY>"
-
-# -- Misc. Settings for Data Management -------------------
-UNIT_TEMPS = "C"        # [C|F|K]
 
 # -- Misc. Application Defaults ---------------------------
 # - Logger -
@@ -40,5 +34,3 @@ DELAY = 300             # Delay in seconds before first upload to cloud
 WAIT = 1                # Delay in seconds between sensor reads
 THROTTLE = 120          # Additional delay in seconds on 'ThottlingError'
 ROUNDING = 1            # Precision (num decimals) for uploaded data
-
-TEMP_COMP = 2.25        # 0 = Disable temp compensation, >0 to be used comp.factor

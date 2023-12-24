@@ -35,16 +35,6 @@ KWD_DATA_DWNLD = 'download'
 KWD_DATA_UPLD = 'upload'
 KWD_DATA_PING = 'ping'
 
-# -- Support for environment data --
-KWD_FEED_TEMPS = 'FEED_TEMPS'
-KWD_FEED_PRESS = 'FEED_PRESS'
-KWD_FEED_HUMID = 'FEED_HUMID'
-
-KWD_DATA_TEMPS = 'temperature'
-KWD_DATA_PRESS = 'pressure'
-KWD_DATA_HUMID = 'humidity'
-
-
 # fmt: off
 # =========================================================
 #   C O N S T A N T S   F O R   D I S P L A Y   M O D E S
