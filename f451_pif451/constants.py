@@ -40,9 +40,9 @@ KWD_DATA_PING = 'ping'
 #   C O N S T A N T S   F O R   D I S P L A Y   M O D E S
 # =========================================================
 DISPL_SPARKLE = 0               # Display sparkles
-DISPL_DWNLD = DISPL_TEMP = 1    # Display download or temp
-DISPL_UPLD = DISPL_PRESS = 2    # Display upload or pressure
-DISPL_PING = DISPL_HUMID = 3    # Display ping or humidity
+DISPL_DWNLD = 1                 # Display download speed
+DISPL_UPLD = 2                  # Display upload speed
+DISPL_PING = 3                  # Display ping response time
 
 MIN_DISPL = DISPL_SPARKLE       # Cannot be smaller than smallest DISPL_xx value
 MAX_DISPL = 3                   # Cannot be larger than largest DISPL_xx value
