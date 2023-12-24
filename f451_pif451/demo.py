@@ -31,7 +31,6 @@ import asyncio
 import platform
 import random
 
-
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
@@ -70,7 +69,7 @@ APP_NAME_SHORT = 'Demo'
 APP_LOG = 'f451-piF451-demo.log'    # Individual logs for devices with multiple apps
 APP_SETTINGS = 'settings.toml'      # Standard for all f451 Labs projects
 
-APP_MIN_SENSOR_READ_WAIT = 5        # Min wait in sec between sensor reads
+APP_MIN_SENSOR_READ_WAIT = 1        # Min wait in sec between sensor reads
 APP_MIN_PROG_WAIT = 1               # Remaining min (loop) wait time to display prog bar
 APP_WAIT_1SEC = 1
 APP_MAX_DATA = 120                  # Max number of data points in the queue
@@ -215,6 +214,10 @@ class AppRT(f451Common.Runtime):
         if self.debugMode:
             self.debug(cli, data)
 
+    def add_sensor(self, sensorName, sensorType):
+        self.sensors[sensorName] = sensorType(self.config)
+        return self.sensors[sensorName]
+
     def update_action(self, cliUI, msg=None):
         """Wrapper to help streamline code"""
         if cliUI:
@@ -235,20 +238,10 @@ class AppRT(f451Common.Runtime):
         if cliUI:
             self.console.update_data(data) # type: ignore
 
+
 # Define app runtime object and basic data unit
 appRT = AppRT(APP_NAME, APP_VERSION, APP_NAME_SHORT, APP_LOG, APP_SETTINGS)
 DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
-
-# Verify that feeds exist
-# try:
-#     FEED_DWNLD = UPLOADER.aio_feed_info(CONFIG.get(const.KWD_FEED_DWNLD, None))
-#     FEED_UPLD = UPLOADER.aio_feed_info(CONFIG.get(const.KWD_FEED_UPLD, None))
-#     FEED_PING = UPLOADER.aio_feed_info(CONFIG.get(const.KWD_FEED_PING, None))
-
-# except RequestError as e:
-#     LOGGER.log_error(f"Application terminated due to REQUEST ERROR: {e}")
-#     sys.exit(1)
-# fmt: on
 
 
 # =========================================================
@@ -833,7 +826,7 @@ def main(cliArgs=None):
     # Initialize device instance which includes all sensors
     # and LED display on Sense HAT. Also initialize joystick
     # events and set 'sleep' and 'display' modes.
-    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat, appRT.config)
+    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat)
     appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
     appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
     appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)

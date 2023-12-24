@@ -94,3 +94,11 @@ class SystemData:
             self.upload.as_dict(),
             self.ping.as_dict(),
         ]
+
+    def as_dict(self):
+        return {
+            'download': self.download.as_dict(),
+            'upload': self.upload.as_dict(),
+            'ping': self.ping.as_dict(),
+        }
+
