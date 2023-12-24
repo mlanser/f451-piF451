@@ -43,6 +43,7 @@ TODO:
 import time
 import sys
 import asyncio
+import contextlib
 import platform
 
 from collections import deque, namedtuple
@@ -949,16 +950,13 @@ def main(cliArgs=None):
     # -- Main application loop --
     appRT.logger.log_info('-- START Data Logging --')
 
-    try: 
+    with contextlib.suppress(KeyboardInterrupt):
         if cliArgs.noCLI:
             main_loop(appRT, appData)
         else:
             appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
             with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
                 main_loop(appRT, appData, True)
-
-    except KeyboardInterrupt:
-        pass
 
     appRT.logger.log_info('-- END Data Logging --')
 

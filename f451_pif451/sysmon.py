@@ -41,12 +41,14 @@ TODO:
     - add support for custom range factor in 'settings.toml'
 """
 
+
 import time
 import sys
 import asyncio
+import contextlib
 import platform
 
-from collections import deque, namedtuple
+from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 
@@ -781,98 +783,97 @@ def main_loop(app, data, cliUI=False):
     # Set 'exit' flag and start the loop!
     exitNow = False
     while not exitNow:
-        try:
-            # fmt: off
-            timeCurrent = time.time()
-            app.timeSinceUpdate = timeCurrent - app.timeUpdate
-            app.sensors['SenseHat'].update_sleep_mode(
-                (timeCurrent - app.displayUpdate) > app.sensors['SenseHat'].displSleepTime, # Time to sleep?
-                # cliArgs.noLED,                                                            # Force no LED?
-                app.sensors['SenseHat'].displSleepMode                                      # Already asleep?
-            )
+        # fmt: off
+        timeCurrent = time.time()
+        app.timeSinceUpdate = timeCurrent - app.timeUpdate
+        app.sensors['SenseHat'].update_sleep_mode(
+            (timeCurrent - app.displayUpdate) > app.sensors['SenseHat'].displSleepTime, # Time to sleep?
+            # cliArgs.noLED,                                                            # Force no LED?
+            app.sensors['SenseHat'].displSleepMode                                      # Already asleep?
+        )
+
+        # Update Sense HAT prog bar as needed
+        app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
+
+        # --- Get magic data ---
+        #
+        app.update_action(cliUI, 'Running speed test …')
+        # Get speed data
+        speedData = app.sensors['SpeedTest'].get_speed_test_data()
+        dwnld = speedData[const.KWD_DATA_DWNLD] / const.MBITS_PER_SEC
+        upld = speedData[const.KWD_DATA_UPLD] / const.MBITS_PER_SEC
+        ping = speedData[const.KWD_DATA_PING]
+
+        #
+        # ----------------------
+        # fmt: on
+
+        # Is it time to upload data?
+        if app.timeSinceUpdate >= app.uploadDelay:
+            try:
+                asyncio.run(
+                    upload_speedtest_data(
+                        app,
+                        {
+                            const.KWD_DATA_DWNLD: round(dwnld, app.ioRounding),
+                            const.KWD_DATA_UPLD: round(upld, app.ioRounding),
+                            const.KWD_DATA_PING: round(ping, app.ioRounding),
+                        },
+                        deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
+                    )
+                )
+
+            except RequestError as e:
+                app.logger.log_error(f'Application terminated: {e}')
+                sys.exit(1)
+
+            except ThrottlingError:
+                # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
+                app.uploadDelay += app.ioThrottle
+
+            except KeyboardInterrupt:
+                exitNow = True
+
+            else:
+                # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
+                app.numUploads += 1
+                app.uploadDelay = app.ioFreq
+                exitNow = exitNow or app.ioUploadAndExit
+                app.logger.log_info(
+                    f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
+                )
+                app.update_upload_status(
+                    cliUI,
+                    timeCurrent,
+                    f451CLIUI.STATUS_OK,
+                    timeCurrent + app.uploadDelay,
+                    app.numUploads,
+                    app.maxUploads,
+                )
+            finally:
+                app.timeUpdate = timeCurrent
+                exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+                app.update_action(cliUI, None)
+
+        # Update data set and display to terminal as needed
+        data.download.data.append(dwnld)
+        data.upload.data.append(upld)
+        data.ping.data.append(ping)
+
+        update_SenseHat_LED(app.sensors['SenseHat'], data)
+        app.update_data(cliUI, prep_data_for_console(data.as_dict()))
+
+        # Are we done? And do we have to wait a bit before next sensor read?
+        if not exitNow:
+            # If we're not done and there's a substantial wait before we can
+            # read the sensors again (e.g. we only want to read sensors every
+            # few minutes for whatever reason), then lets display and update
+            # the progress bar as needed. Once the wait is done, we can go
+            # through this whole loop all over again ... phew!
+            hurry_up_and_wait(app, cliUI)
 
             # Update Sense HAT prog bar as needed
             app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-            # --- Get magic data ---
-            #
-            app.update_action(cliUI, 'Running speed test …')
-            # Get speed data
-            speedData = app.sensors['SpeedTest'].get_speed_test_data()
-            dwnld = speedData[const.KWD_DATA_DWNLD] / const.MBITS_PER_SEC
-            upld = speedData[const.KWD_DATA_UPLD] / const.MBITS_PER_SEC
-            ping = speedData[const.KWD_DATA_PING]
-
-            #
-            # ----------------------
-            # fmt: on
-
-            # Is it time to upload data?
-            if app.timeSinceUpdate >= app.uploadDelay:
-                try:
-                    asyncio.run(
-                        upload_speedtest_data(
-                            app,
-                            {
-                                const.KWD_DATA_DWNLD: round(dwnld, app.ioRounding),
-                                const.KWD_DATA_UPLD: round(upld, app.ioRounding),
-                                const.KWD_DATA_PING: round(ping, app.ioRounding),
-                            },
-                            deviceID=f451Common.get_RPI_ID(f451Common.DEF_ID_PREFIX),
-                        )
-                    )
-
-                except RequestError as e:
-                    app.logger.log_error(f'Application terminated: {e}')
-                    sys.exit(1)
-
-                except ThrottlingError:
-                    # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
-                    app.uploadDelay += app.ioThrottle
-
-                else:
-                    # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
-                    app.numUploads += 1
-                    app.uploadDelay = app.ioFreq
-                    exitNow = exitNow or app.ioUploadAndExit
-                    app.logger.log_info(
-                        f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
-                    )
-                    app.update_upload_status(
-                        cliUI,
-                        timeCurrent,
-                        f451CLIUI.STATUS_OK,
-                        timeCurrent + app.uploadDelay,
-                        app.numUploads,
-                        app.maxUploads,
-                    )
-                finally:
-                    app.timeUpdate = timeCurrent
-                    exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
-                    app.update_action(cliUI, None)
-
-            # Update data set and display to terminal as needed
-            data.download.data.append(dwnld)
-            data.upload.data.append(upld)
-            data.ping.data.append(ping)
-
-            update_SenseHat_LED(app.sensors['SenseHat'], data)
-            app.update_data(cliUI, prep_data_for_console(data.as_dict()))
-
-            # Are we done? And do we have to wait a bit before next sensor read?
-            if not exitNow:
-                # If we're not done and there's a substantial wait before we can
-                # read the sensors again (e.g. we only want to read sensors every
-                # few minutes for whatever reason), then lets display and update
-                # the progress bar as needed. Once the wait is done, we can go
-                # through this whole loop all over again ... phew!
-                hurry_up_and_wait(app, cliUI)
-
-                # Update Sense HAT prog bar as needed
-                app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-        except KeyboardInterrupt:
-            exitNow = True
 
 
 # =========================================================
@@ -951,12 +952,13 @@ def main(cliArgs=None):
     # -- Main application loop --
     appRT.logger.log_info('-- START Data Logging --')
 
-    if cliArgs.noCLI:
-        main_loop(appRT, appData)
-    else:
-        appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
-        with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
-            main_loop(appRT, appData, True)
+    with contextlib.suppress(KeyboardInterrupt):
+        if cliArgs.noCLI:
+            main_loop(appRT, appData)
+        else:
+            appRT.console.update_upload_next(appRT.timeUpdate + appRT.uploadDelay)  # type: ignore
+            with Live(appRT.console.layout, screen=True, redirect_stderr=False):  # noqa: F841 # type: ignore
+                main_loop(appRT, appData, True)
 
     appRT.logger.log_info('-- END Data Logging --')
 
