@@ -510,7 +510,7 @@ def prep_data_for_screen(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_M
             dataPtDelta = f451Common.get_delta_range(dataPt, dataPtPrev, APP_DELTA_FACTOR)
 
             # Update data set
-            dataSet['sparkData'] = dataValid
+            dataSet['sparkData'] = [0 if i is None else i for i in dataValid]
             dataSet['sparkColors'] = _sparkline_colors(row['limits'])
             dataSet['sparkMinMax'] = (
                 (min(dataClean), max(dataClean)) if any(dataClean) else (None, None)
