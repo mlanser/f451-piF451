@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""f451 Labs Demo application for piF451 device.
+"""f451 Labs Demo application for piRED & piF451 devices.
 
 This application is designed demo core features of the f451 Labs piF451 device which is 
 also equipped with a Sense HAT add-on. A secondary objective is to verify that the device
@@ -7,12 +7,12 @@ is configured properly and that the Sense HAT works.
 
 To launch this application from terminal:
 
-    $ python -m f451_pif451
+    $ python -m demo
 
 It's also possible to install this package via 'pip' from Github and one can then launch 
 this application as follows:
 
-    $ f451_pif451
+    $ demo
 
 NOTE: This application is designed to display data on the Raspberry Pi Sense HAT which 
       has an 8x8 LED, and a joystick. We also support various display modes including 
@@ -42,10 +42,8 @@ from . import demo_data as f451DemoData
 import f451_common.cli_ui as f451CLIUI
 import f451_common.common as f451Common
 import f451_common.logger as f451Logger
-# import f451_common.cloud as f451Cloud
 
 import f451_sensehat.sensehat as f451SenseHat
-import f451_sensehat.sensehat_data as f451SenseData
 
 from rich.console import Console
 from rich.live import Live
@@ -65,9 +63,9 @@ install_rich_traceback(show_locals=True)
 #          G L O B A L S   A N D   H E L P E R S
 # =========================================================
 APP_VERSION = '0.5.2'
-APP_NAME = 'f451 Labs - piF451 Demo'
+APP_NAME = 'f451 Labs - Demo'
 APP_NAME_SHORT = 'Demo'
-APP_LOG = 'f451-piF451-demo.log'    # Individual logs for devices with multiple apps
+APP_LOG = 'f451-demo.log'           # Individual logs for devices with multiple apps
 APP_SETTINGS = 'settings.toml'      # Standard for all f451 Labs projects
 
 APP_MIN_SENSOR_READ_WAIT = 1        # Min wait in sec between sensor reads
@@ -148,7 +146,7 @@ class AppRT(f451Common.Runtime):
                 self.appName,
                 self.appNameShort,
                 self.appVersion,
-                prep_data_for_console(data.as_dict(), True),
+                f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, labelsOnly=True),
                 not cliArgs.noCLI,
             )
             self.console = UI # type: ignore
@@ -248,226 +246,6 @@ DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # =========================================================
 #              H E L P E R   F U N C T I O N S
 # =========================================================
-def prep_data_for_sensehat(inData, lenSlice=0):
-    """Prep data for Sense HAT
-
-    This function will filter data to ensure we don't have incorrect
-    outliers (e.g. from faulty sensors, etc.). The final data set will
-    have only valid values. Any invalid values will be replaced with
-    0's so that we can display the set on the Sense HAT LED.
-
-    This will technically affect the min/max values for the set. However,
-    we're displaying this data on an 8x8 LED. So visual 'accuracy' is
-    already less than ideal ;-)
-
-    NOTE: the data structure is more complex than we need for Sense HAT
-    devices. But we want to maintain a basic level of compatibility with
-    other f451 Labs modules.
-
-    Args:
-        inData: 'DataUnit' named tuple with 'raw' data from sensors
-        lenSlice: (optional) length of data slice
-
-    Returns:
-        'DataUnit' named tuple with the following fields:
-            data   = [list of values],
-            valid  = <tuple with min/max>,
-            unit   = <unit string>,
-            label  = <label string>,
-            limits = [list of limits]
-    """
-    # Size of data slice we want to send to Sense HAT. The 'f451 Labs SenseHat'
-    # library will ulimately only display the last 8 values anyway.
-    dataSlice = list(inData.data)[-lenSlice:]
-
-    # Return filtered data
-    dataClean = [i if f451Common.is_valid(i, inData.valid) else 0 for i in dataSlice]
-
-    return f451SenseData.DataUnit(
-        data=dataClean,
-        valid=inData.valid,
-        unit=inData.unit,
-        label=inData.label,
-        limits=inData.limits,
-    )
-
-
-def prep_data_for_console(inData, labelsOnly=False, conWidth=f451CLIUI.APP_2COL_MIN_WIDTH):
-    """Prep data for display in terminal
-
-    We display a table in the terminal with a row for each data type. On
-    each row, we the display label, last value (with unit), and a sparkline
-    graph.
-
-    This function will filter data to ensure we don't have incorrect
-    outliers (e.g. from faulty sensors, etc.). The final data set will
-    have only valid values. Any invalid values will be replaced with
-    0's so that we can display the set as a sparkline graph.
-
-    This will technically affect the min/max values for the set. However,
-    we're displaying this data in a table cells that will have about
-    40 columns, and each column is made up of block characters which
-    can only show 8 different heights. So visual 'accuracy' is
-    already less than ideal ;-)
-
-    NOTE: We need to map the data sets agains a numeric range of 1-8 so
-          that we can display them as sparkline graphs in the terminal.
-
-    NOTE: We're using the 'limits' list to color the values, which means
-          we need to create a special 'coloring' set for the sparkline
-          graphs using converted limit values.
-
-          The limits list has 4 values (see also 'SenseData' class) and
-          we need to map them to colors:
-
-          Limit set [A, B, C, D] means:
-
-                     val <= A -> Dangerously Low    = "bright_red"
-                B >= val >  A -> Low                = "bright_yellow"
-                C >= val >  B -> Normal             = "green"
-                D >= val >  C -> High               = "cyan"
-                     val >  D -> Dangerously High   = "blue"
-
-          Note that the Sparkline library has a specific syntax for
-          limits and colors:
-
-            "<name of color>:<gt|eq|lt>:<value>"
-
-          Also, we only care about 'low', 'normal', and 'high'
-
-    Args:
-        inData: 'dict' with Sense HAT data
-
-    Returns:
-        'list' with processed data and only with data rows (i.e. temp,
-        humidity, pressure) and columns (i.e. label, last data pt, and
-        sparkline) that we want to display. Each row in the list is
-        designed for display in the terminal.
-    """
-    outData = []
-
-    def _sparkline_colors(limits, customColors=None):
-        """Create color mapping for sparkline graphs
-
-        This function creates the 'color' list which allows
-        the 'sparklines' library to add add correct ANSI
-        color codes to the graph.
-
-        Args:
-            limits: list with limits -- see SenseHat module for details
-            customColors: (optional) custom color map
-
-        Return:
-            'list' with definitions for 'emph' param of 'sparklines' method
-        """
-        # fmt: off
-        colors = None
-
-        if all(limits):
-            colorMap = f451Common.get_tri_colors(customColors)
-
-            colors = [
-                f'{colorMap.high}:gt:{round(limits[2], 1)}',    # High   # type: ignore
-                f'{colorMap.normal}:eq:{round(limits[2], 1)}',  # Normal # type: ignore
-                f'{colorMap.normal}:lt:{round(limits[2], 1)}',  # Normal # type: ignore
-                f'{colorMap.low}:eq:{round(limits[1], 1)}',     # Low    # type: ignore
-                f'{colorMap.low}:lt:{round(limits[1], 1)}',     # Low    # type: ignore
-            ]
-
-        return colors
-        # fmt: on
-
-    def _dataPt_color(val, limits, default='', customColors=None):
-        """Determine color mapping for specific value
-
-        Args:
-            val: value to check
-            limits: list with limits -- see SenseHat module for details
-            default: (optional) default color name string
-            customColors: (optional) custom color map
-
-        Return:
-            'list' with definitions for 'emph' param of 'sparklines' method
-        """
-        color = default
-        colorMap = f451Common.get_tri_colors(customColors)
-
-        if val is not None and all(limits):
-            if val > round(limits[2], 1):
-                color = colorMap.high
-            elif val <= round(limits[1], 1):
-                color = colorMap.low
-            else:
-                color = colorMap.normal
-
-        return color
-
-    # Process each data row and create a new data structure that we can use
-    # for displaying all necessary data in the terminal.
-    for key, row in inData.items():
-        if key in APP_DATA_TYPES:
-            # Create new crispy clean set :-)
-            dataSet = {
-                'sparkData': [],
-                'sparkColors': None,
-                'sparkMinMax': (None, None),
-                'dataPt': None,
-                'dataPtOK': True,
-                'dataPtDelta': 0,
-                'dataPtColor': '',
-                'unit': row['unit'],
-                'label': row['label'],
-            }
-
-            # If we only need labels, then we'll skip to
-            # next iteration of the loop
-            if labelsOnly:
-                outData.append(dataSet)
-                continue
-
-            # Data slice we can display in table row
-            graphWidth = min(int(conWidth / 2), 40)
-            dataSlice = list(row['data'])[-graphWidth:]
-
-            # Get filtered data to calculate min/max. Note that 'valid' data
-            # will have only valid values. Any invalid values would have been
-            # replaced with 'None' values. We can display this set using the
-            # 'sparklines' library. We continue refining the data by removing
-            # all 'None' values to get a 'clean' set, which we can use to
-            # establish min/max values for the set.
-            dataValid = [i if f451Common.is_valid(i, row['valid']) else None for i in dataSlice]
-            dataClean = [i for i in dataValid if i is not None]
-
-            # We set 'OK' flag to 'True' if current data point is valid or
-            # missing (i.e. None).
-            dataPt = dataSlice[-1] if f451Common.is_valid(dataSlice[-1], row['valid']) else None
-            dataPtOK = dataPt or dataSlice[-1] is None
-
-            # We determine up/down/sideways trend by looking at delate between
-            # current value and previous value. If current and/or previous value
-            # is 'None' for whatever reason, then we assume 'sideways' (0)trend.
-            dataPtPrev = (
-                dataSlice[-2] if f451Common.is_valid(dataSlice[-2], row['valid']) else None
-            )
-            dataPtDelta = f451Common.get_delta_range(dataPt, dataPtPrev, APP_DELTA_FACTOR)
-
-            # Update data set
-            dataSet['sparkData'] = [0 if i is None else i for i in dataValid]
-            dataSet['sparkColors'] = _sparkline_colors(row['limits'])
-            dataSet['sparkMinMax'] = (
-                (min(dataClean), max(dataClean)) if any(dataClean) else (None, None)
-            )
-
-            dataSet['dataPt'] = dataPt
-            dataSet['dataPtOK'] = dataPtOK
-            dataSet['dataPtDelta'] = dataPtDelta
-            dataSet['dataPtColor'] = _dataPt_color(dataPt, row['limits'])
-
-            outData.append(dataSet)
-
-    return outData
-
-
 async def send_data(*args):
     """Fake 'send' function"""
     print('Fake upload start ...')
@@ -612,13 +390,13 @@ def update_SenseHat_LED(sense, data, colors=None):
     # Check display mode. Each mode corresponds to a data type
     if sense.displMode == 1:
         minMax = _minMax(data.number1.as_tuple().data)
-        dataClean = prep_data_for_sensehat(data.number1.as_tuple())
+        dataClean = f451SenseHat.prep_data(data.number1.as_tuple())
         colorMap = _get_color_map(dataClean, colors)
         sense.display_as_graph(dataClean, minMax, colorMap)
 
     elif sense.displMode == 2:
         minMax = _minMax(data.number2.as_tuple().data)
-        dataClean = prep_data_for_sensehat(data.number2.as_tuple())
+        dataClean = f451SenseHat.prep_data(data.number2.as_tuple())
         colorMap = _get_color_map(dataClean, colors)
         sense.display_as_graph(dataClean, minMax, colorMap)
 
@@ -770,7 +548,9 @@ def main_loop(app, data, cliUI=False):
         data.number2.data.append(newData.number2)
 
         update_SenseHat_LED(app.sensors['SenseHat'], data)
-        app.update_data(cliUI, prep_data_for_console(data.as_dict()))
+        app.update_data(
+            cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
+        )
 
         # Are we done? And do we have to wait a bit before next sensor read?
         if not exitNow:
@@ -833,7 +613,8 @@ def main(cliArgs=None):
     appRT.sensors['SenseHat'].displProgress = cliArgs.progress
     appRT.sensors['SenseHat'].display_message(APP_NAME)
 
-    # -- Main application loop --
+    # --- Main application loop ---
+    #
     appRT.logger.log_info('-- START Data Logging --')
 
     with contextlib.suppress(KeyboardInterrupt):
@@ -845,6 +626,8 @@ def main(cliArgs=None):
                 main_loop(appRT, appData, True)
 
     appRT.logger.log_info('-- END Data Logging --')
+    #
+    # -----------------------------
 
     # A bit of clean-up before we exit
     appRT.sensors['SenseHat'].display_reset()
