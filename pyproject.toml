@@ -41,7 +41,7 @@ sensemon = "f451_pif451.sensemon:main"
 sysmon = "f451_pif451.sysmon:main"
 
 [tool.bumpver]
-current_version = "0.5.2"
+current_version = "1.0.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
