@@ -554,15 +554,14 @@ def _NUKE_hurry_up_and_wait(app, data, waitCntr, cliUI=False):
 def collect_data(app, data, timeCurrent, cliUI=False):
     exitNow = False
 
-    # --- Get magic data ---
+    # --- Get speed data ---
     #
     app.update_action(cliUI, 'Running speed test …')
-    # Get speed data
+
     speedData = app.sensors['SpeedTest'].get_speed_test_data()
     dwnld = speedData[const.KWD_DATA_DWNLD] / const.MBITS_PER_SEC
     upld = speedData[const.KWD_DATA_UPLD] / const.MBITS_PER_SEC
     ping = speedData[const.KWD_DATA_PING]
-
     #
     # ----------------------
 
@@ -669,7 +668,7 @@ def main_loop(app, data, cliUI=False):
                 if app.ioWait > APP_MIN_PROG_WAIT:
                     app.update_progress(cliUI, None, 'Waiting for speed test')
 
-            # Update UI anmd SenseHAT LED as needed
+            # Update UI and SenseHAT LED as needed
             app.update_data(
                 cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
             )
