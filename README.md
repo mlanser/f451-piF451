@@ -1,4 +1,4 @@
-# Instructions for f451-piF451 SysMon v1.0.0
+# Instructions for f451-piF451 SysMon v1.0.1
 
 ## Custom application settings in SETTINGS.TOML
 
