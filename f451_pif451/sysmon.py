@@ -61,7 +61,6 @@ import f451_common.logger as f451Logger
 import f451_common.cloud as f451Cloud
 
 import f451_sensehat.sensehat as f451SenseHat
-import f451_sensehat.sensehat_data as f451SenseData
 
 from rich.console import Console
 from rich.live import Live
