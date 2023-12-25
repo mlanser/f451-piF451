@@ -592,7 +592,7 @@ def collect_data(app, data, timeCurrent, cliUI=False):
                 f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
             )
             app.update_upload_status(cliUI, timeCurrent, f451CLIUI.STATUS_OK)
-            
+
         finally:
             app.timeUpdate = timeCurrent
             exitApp = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
@@ -741,13 +741,13 @@ def main(cliArgs=None):  # sourcery skip: extract-method
         appRT.sensors['SenseHat'].displProgress = cliArgs.progress
         appRT.sensors['SenseHat'].display_message(APP_NAME)
 
+        # Initialize SpeedTest client and add to sensors
+        appRT.add_sensor('SpeedTest', SpeedTest)
+
     except KeyboardInterrupt:
         appRT.sensors['SenseHat'].display_reset()
         print(f'{APP_NAME} (v{APP_VERSION}) - Session terminated by user')
         sys.exit(0)
-
-    # Initialize SpeedTest client and add to sensors
-    appRT.add_sensor('SpeedTest', SpeedTest)
 
     # --- Main application loop ---
     #

@@ -36,8 +36,6 @@ dev = [
 Homepage = "https://github.com/mlanser/f451-pif451"
 
 [project.scripts]
-demo = "f451_pif451.demo:main"
-sensemon = "f451_pif451.sensemon:main"
 sysmon = "f451_pif451.sysmon:main"
 
 [tool.bumpver]
