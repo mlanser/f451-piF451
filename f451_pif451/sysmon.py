@@ -743,7 +743,7 @@ def main(cliArgs=None):  # sourcery skip: extract-method
 
     except KeyboardInterrupt:
         appRT.sensors['SenseHat'].display_reset()
-        print(f'{APP_NAME} (v{APP_VERSION})')
+        print(f'{APP_NAME} (v{APP_VERSION}) - Session terminated by user')
         sys.exit(0)
 
     # Initialize SpeedTest client and add to sensors
