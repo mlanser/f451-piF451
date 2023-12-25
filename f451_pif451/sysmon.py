@@ -305,9 +305,8 @@ class AppRT(f451Common.Runtime):
         if cliUI:
             self.console.update_data(data) # type: ignore
 
-# Define app runtime object and basic data unit
+# Define app runtime object
 appRT = AppRT(APP_NAME, APP_VERSION, APP_NAME_SHORT, APP_LOG, APP_SETTINGS)
-DataUnit = namedtuple("DataUnit", APP_DATA_TYPES)
 # fmt: on
 
 
