@@ -523,36 +523,22 @@ def init_cli_parser(appName, appVersion, setDefaults=True):
     # fmt: on
 
 
-def _NUKE_hurry_up_and_wait(app, data, waitCntr, cliUI=False):
-    """Display wait messages and progress bars
-
-    This function comes into play if we have longer wait times
-    between sensor reads, etc. For example, we may want to read
-    temperature sensors every second. But we may want to wait a
-    minute or more to run internet speed tests.
+def collect_data(app, data, timeCurrent, cliUI=False):
+    """Collect data from sensors.
+    
+    This is core of the application where we collect data from 
+    one or more sensors, and then upload the data as needed.
 
     Args:
-        app: hook to app runtime object
-        cliUI: 'bool' indicating whether user wants full UI
+        app: application runtime object with config, counters, etc.
+        data: main application data queue
+        timeCurrent: time stamp from when loop started
+        cliUI: 'bool' to indicate if we use full (console) UI
+
+    Returns:
+        'bool' if 'True' then we're done with all loops and we can exit app
     """
-    if app.ioWait > APP_MIN_PROG_WAIT:
-        app.update_progress(cliUI, None, 'Waiting for speed test')
-        for i in range(app.ioWait):
-            app.update_progress(cliUI, int(i / app.ioWait * 100))
-            time.sleep(APP_WAIT_1SEC)
-        app.update_action(cliUI, None)
-    else:
-        time.sleep(app.ioWait)
-
-    # Update Sense HAT prog bar as needed with time remaining
-    # until next data upload
-    app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
-
-    return 0
-
-
-def collect_data(app, data, timeCurrent, cliUI=False):
-    exitNow = False
+    exitApp = False
 
     # --- Get speed data ---
     #
@@ -589,13 +575,13 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             app.uploadDelay += app.ioThrottle
 
         except KeyboardInterrupt:
-            exitNow = True
+            exitApp = True
 
         else:
             # Reset 'uploadDelay' back to normal 'ioFreq' on successful upload
             app.numUploads += 1
             app.uploadDelay = app.ioFreq
-            exitNow = exitNow or app.ioUploadAndExit
+            exitApp = exitApp or app.ioUploadAndExit
             app.logger.log_info(
                 f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
             )
@@ -609,7 +595,7 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             )
         finally:
             app.timeUpdate = timeCurrent
-            exitNow = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
+            exitApp = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
             app.update_action(cliUI, None)
 
     # Update data set and display to terminal as needed
@@ -622,7 +608,7 @@ def collect_data(app, data, timeCurrent, cliUI=False):
         cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
     )
 
-    return exitNow
+    return exitApp
 
 
 def main_loop(app, data, cliUI=False):
@@ -638,10 +624,10 @@ def main_loop(app, data, cliUI=False):
         cliUI: 'bool' to indicate if we use full (console) UI
     """
     # Set 'wait' counter 'exit' flag and start the loop!
-    exitNow = False
+    exitApp = False
     waitForSensor = 0
 
-    while not exitNow:
+    while not exitApp:
         try:
             # fmt: off
             timeCurrent = time.time()
@@ -663,7 +649,7 @@ def main_loop(app, data, cliUI=False):
             # ... or can we collect more 'specimen'? :-P
             else:
                 app.update_action(cliUI, None)
-                exitNow = collect_data(app, data, timeCurrent, cliUI)
+                exitApp = collect_data(app, data, timeCurrent, cliUI)
                 waitForSensor = max(app.ioWait, APP_MIN_PROG_WAIT)
                 if app.ioWait > APP_MIN_PROG_WAIT:
                     app.update_progress(cliUI, None, 'Waiting for speed test')
@@ -676,10 +662,10 @@ def main_loop(app, data, cliUI=False):
             app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
 
         except KeyboardInterrupt:
-            exitNow = True
+            exitApp = True
 
         # Are we done?
-        if not exitNow:
+        if not exitApp:
             time.sleep(app.loopWait)
             waitForSensor -= app.loopWait
 
@@ -687,7 +673,7 @@ def main_loop(app, data, cliUI=False):
 # =========================================================
 #      M A I N   F U N C T I O N    /   A C T I O N S
 # =========================================================
-def main(cliArgs=None):
+def main(cliArgs=None):  # sourcery skip: extract-method
     """Main function.
 
     This function will goes through the setup and then runs the
@@ -744,15 +730,21 @@ def main(cliArgs=None):
         appRT.logger.log_error(f'Application terminated due to REQUEST ERROR: {e}')
         sys.exit(1)
 
-    # Initialize device instance which includes all sensors
-    # and LED display on Sense HAT. Also initialize joystick
-    # events and set 'sleep' and 'display' modes.
-    appRT.add_sensor('SenseHat', f451SenseHat.SenseHat)
-    appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
-    appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
-    appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)
-    appRT.sensors['SenseHat'].displProgress = cliArgs.progress
-    appRT.sensors['SenseHat'].display_message(APP_NAME)
+    try:
+        # Initialize device instance which includes all sensors
+        # and LED display on Sense HAT. Also initialize joystick
+        # events and set 'sleep' and 'display' modes.
+        appRT.add_sensor('SenseHat', f451SenseHat.SenseHat)
+        appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
+        appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
+        appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)
+        appRT.sensors['SenseHat'].displProgress = cliArgs.progress
+        appRT.sensors['SenseHat'].display_message(APP_NAME)
+
+    except KeyboardInterrupt:
+        appRT.sensors['SenseHat'].display_reset()
+        print(f'{APP_NAME} (v{APP_VERSION})')
+        sys.exit(0)
 
     # Initialize SpeedTest client and add to sensors
     appRT.add_sensor('SpeedTest', SpeedTest)
