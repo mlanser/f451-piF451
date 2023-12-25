@@ -289,10 +289,16 @@ class AppRT(f451Common.Runtime):
         if cliUI:
             self.console.update_progress(prog, msg) # type: ignore        
 
-    def update_upload_status(self, cliUI, lastTime, lastStatus, nextTime, numUploads, maxUploads=0):
+    def update_upload_status(self, cliUI, lastTime, lastStatus):
         """Wrapper to help streamline code"""
         if cliUI:
-            self.console.update_upload_status(lastTime, lastStatus, nextTime, numUploads, maxUploads) # type: ignore
+            self.console.update_upload_status(      # type: ignore
+                lastTime, 
+                lastStatus, 
+                lastTime + self.uploadDelay, 
+                self.numUploads, 
+                self.maxUploads
+            )
 
     def update_data(self, cliUI, data):
         """Wrapper to help streamline code"""
@@ -569,9 +575,10 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             app.logger.log_error(f'Application terminated: {e}')
             sys.exit(1)
 
-        except ThrottlingError:
+        except ThrottlingError as e:
             # Keep increasing 'ioDelay' each time we get a 'ThrottlingError'
             app.uploadDelay += app.ioThrottle
+            app.logger.log_error(f'Throttling error: {e}')
 
         except KeyboardInterrupt:
             exitApp = True
@@ -584,14 +591,8 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             app.logger.log_info(
                 f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
             )
-            app.update_upload_status(
-                cliUI,
-                timeCurrent,
-                f451CLIUI.STATUS_OK,
-                timeCurrent + app.uploadDelay,
-                app.numUploads,
-                app.maxUploads,
-            )
+            app.update_upload_status(cliUI, timeCurrent, f451CLIUI.STATUS_OK)
+            
         finally:
             app.timeUpdate = timeCurrent
             exitApp = (app.maxUploads > 0) and (app.numUploads >= app.maxUploads)
