@@ -48,7 +48,6 @@ import asyncio
 import contextlib
 import platform
 
-from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 
@@ -654,11 +653,11 @@ def main_loop(app, data, cliUI=False):
                     app.update_progress(cliUI, None, 'Waiting for speed test')
 
             # Update UI and SenseHAT LED as needed
-            app.update_data(
-                cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
-            )
-            update_SenseHat_LED(app.sensors['SenseHat'], data)
-            app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
+            # app.update_data(
+            #     cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
+            # )
+            # update_SenseHat_LED(app.sensors['SenseHat'], data)
+            # app.sensors['SenseHat'].display_progress(app.timeSinceUpdate / app.uploadDelay)
 
         except KeyboardInterrupt:
             exitApp = True
