@@ -651,7 +651,8 @@ def main_loop(app, data, cliUI=False):
                 if app.ioWait > APP_MIN_PROG_WAIT:
                     app.update_progress(cliUI, None, 'Waiting for speed test')
 
-            # Update UI and SenseHAT LED as needed
+            # Update UI and SenseHAT LED as needed even when we're just waiting for 
+            # next upload. This means that more sparkles are generated as well
             app.update_data(
                 cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
             )
