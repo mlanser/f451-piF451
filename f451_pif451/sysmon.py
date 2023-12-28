@@ -39,6 +39,7 @@ Dependencies:
 TODO:
     - add support for custom colors in 'settings.toml'
     - add support for custom range factor in 'settings.toml'
+    - more/better tests
 """
 
 
@@ -528,8 +529,8 @@ def init_cli_parser(appName, appVersion, setDefaults=True):
 
 def collect_data(app, data, timeCurrent, cliUI=False):
     """Collect data from sensors.
-    
-    This is core of the application where we collect data from 
+
+    This is core of the application where we collect data from
     one or more sensors, and then upload the data as needed.
 
     Args:
@@ -587,7 +588,7 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             app.uploadDelay = app.ioFreq
             exitApp = exitApp or app.ioUploadAndExit
             app.logger.log_info(
-                f"Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}"
+                f'Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}'
             )
             app.update_upload_status(cliUI, timeCurrent, f451CLIUI.STATUS_OK)
 
@@ -602,18 +603,16 @@ def collect_data(app, data, timeCurrent, cliUI=False):
     data.ping.data.append(ping)
 
     update_SenseHat_LED(app.sensors['SenseHat'], data)
-    app.update_data(
-        cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR)
-    )
+    app.update_data(cliUI, f451CLIUI.prep_data(data.as_dict(), APP_DATA_TYPES, APP_DELTA_FACTOR))
 
     return exitApp
 
 
 def main_loop(app, data, cliUI=False):
     """Main application loop.
-    
-    This is where most of the action happens. We continously collect 
-    data from our sensors, process it, display it, and upload it at 
+
+    This is where most of the action happens. We continously collect
+    data from our sensors, process it, display it, and upload it at
     certain intervals.
 
     Args:
@@ -706,22 +705,22 @@ def main(cliArgs=None):  # sourcery skip: extract-method
     appData = f451SystemData.SystemData(None, APP_MAX_DATA)
     appRT.init_runtime(cliArgs, appData)
 
-    # Verify that feeds exist and initialize them 
+    # Verify that feeds exist and initialize them
     try:
         appRT.add_feed(
-            const.KWD_DATA_DWNLD, 
-            f451Cloud.AdafruitCloud, 
-            appRT.config.get(const.KWD_FEED_DWNLD, None)
+            const.KWD_DATA_DWNLD,
+            f451Cloud.AdafruitCloud,
+            appRT.config.get(const.KWD_FEED_DWNLD, None),
         )
         appRT.add_feed(
-            const.KWD_DATA_UPLD, 
-            f451Cloud.AdafruitCloud, 
-            appRT.config.get(const.KWD_FEED_UPLD, None)
+            const.KWD_DATA_UPLD,
+            f451Cloud.AdafruitCloud,
+            appRT.config.get(const.KWD_FEED_UPLD, None),
         )
         appRT.add_feed(
-            const.KWD_DATA_PING, 
-            f451Cloud.AdafruitCloud, 
-            appRT.config.get(const.KWD_FEED_PING, None)
+            const.KWD_DATA_PING,
+            f451Cloud.AdafruitCloud,
+            appRT.config.get(const.KWD_FEED_PING, None),
         )
 
     except RequestError as e:
