@@ -39,7 +39,7 @@ Homepage = "https://github.com/mlanser/f451-pif451"
 sysmon = "f451_pif451.sysmon:main"
 
 [tool.bumpver]
-current_version = "1.0.5"
+current_version = "1.0.6"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
