@@ -4,21 +4,10 @@ This class defines a data structure that can be used
 to manage misc. system data. This object follows overall 
 design of SenseHat Data object, but is customized for
 system data collected in the 'sysmon' application.
-
-Dependencies:
-    TBD
 """
 
 from collections import deque
 import f451_sensehat.sensehat_data as f451SenseData
-
-
-# =========================================================
-#              M I S C .   C O N S T A N T S
-# =========================================================
-# TEMP_UNIT_C = "C"   # Celsius
-# TEMP_UNIT_F = "F"   # Fahrenheit
-# TEMP_UNIT_K = "K"   # Kelvin
 
 
 # =========================================================

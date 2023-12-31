@@ -33,15 +33,14 @@ NOTE: Parts of this code is based on ideas found in the 'luftdaten_combined.py' 
       and more.
 
 Dependencies:
-    - adafruit-io - only install if you have an account with Adafruit IO
-    - speedtest-cli - used for internet speed tests
+ - adafruit-io - only install if you have an account with Adafruit IO
+ - speedtest-cli - used for internet speed tests
 
 TODO:
-    - add support for custom colors in 'settings.toml'
-    - add support for custom range factor in 'settings.toml'
-    - more/better tests
+ - add support for custom colors in 'settings.toml'
+ - add support for custom range factor in 'settings.toml'
+ - more/better tests
 """
-
 
 import time
 import sys
@@ -98,11 +97,14 @@ APP_DATA_TYPES = [
     const.KWD_DATA_PING             # 'ping' response time
 ]
 
-APP_DISPLAY_MODES = {
-    f451SenseHat.KWD_DISPLAY_MIN: const.MIN_DISPL,
-    f451SenseHat.KWD_DISPLAY_MAX: const.MAX_DISPL,
-}
+APP_DISPL_MODES = [
+    const.DISPL_DWNLD,              # Display download speed
+    const.DISPL_UPLD,               # Display upload speed
+    const.DISPL_PING,               # Display ping response time
+]
 
+COLOR_LOGO_FG = (255, 0, 0)
+COLOR_LOGO_BG = (67, 70, 75)
 
 class SpeedTest:
     """Wrapper class for SpeedTest CLI
@@ -110,7 +112,7 @@ class SpeedTest:
     We use this wrapper class to make it compatible with other 
     sensor objects (e.g. SenseHat, Enviro, etc.). This makes it 
     easier to add it as just another sensor object to the sensor
-    list of an app object.
+    list of the app object.
     """
     def __init__(self, *args, **kwargs):
         self._client = speedtest.Speedtest(secure=True)
@@ -132,7 +134,7 @@ class AppRT(f451Common.Runtime):
     """Application runtime object.
     
     We use this object to store/manage configuration and any other variables
-    required to run this application as object atrtribustes. This allows us to
+    required to run this application as object attributes. This allows us to
     have fewer global variables.
     """
     def __init__(self, appName, appVersion, appNameShort=None, appLog=None, appSettings=None):
@@ -146,6 +148,20 @@ class AppRT(f451Common.Runtime):
             Path(__file__).parent   # Find dir for this app
         )
         
+    def _init_log_settings(self, cliArgs):
+        """Helper for setting logger settings"""
+        if cliArgs.debug:
+            self.logLvl = f451Logger.LOG_DEBUG
+            self.debugMode = True
+        else:
+            self.logLvl = self.config.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
+            self.debugMode = (self.logLvl == f451Logger.LOG_DEBUG)
+
+        self.logger.set_log_level(self.logLvl)
+
+        if cliArgs.log is not None:
+            self.logger.set_log_file(appRT.logLvl, cliArgs.log)
+
     def init_runtime(self, cliArgs, data):
         """Initialize the 'runtime' variable
         
@@ -169,18 +185,8 @@ class AppRT(f451Common.Runtime):
         self.ioRounding = self.config.get(const.KWD_ROUNDING, const.DEF_ROUNDING)
         self.ioUploadAndExit = False
 
-        # Update log file or level?
-        if cliArgs.debug:
-            self.logLvl = f451Logger.LOG_DEBUG
-            self.debugMode = True
-        else:
-            self.logLvl = self.config.get(f451Logger.KWD_LOG_LEVEL, f451Logger.LOG_NOTSET)
-            self.debugMode = (self.logLvl == f451Logger.LOG_DEBUG)
-
-        self.logger.set_log_level(self.logLvl)
-
-        if cliArgs.log is not None:
-            self.logger.set_log_file(appRT.logLvl, cliArgs.log)
+        # Initialize log file/level
+        self._init_log_settings(cliArgs)
 
         # Initialize various counters, etc.
         self.timeSinceUpdate = float(0)
@@ -387,7 +393,7 @@ def btn_left(event):
     global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        appRT.sensors['SenseHat'].update_display_mode(-1)
+        appRT.sensors['SenseHat'].set_display_mode(-1)
         appRT.displayUpdate = time.time()
 
 
@@ -399,7 +405,7 @@ def btn_right(event):
     global appRT
 
     if event.action != f451SenseHat.BTN_RELEASE:
-        appRT.sensors['SenseHat'].update_display_mode(1)
+        appRT.sensors['SenseHat'].set_display_mode(1)
         appRT.displayUpdate = time.time()
 
 
@@ -474,7 +480,7 @@ def update_SenseHat_LED(sense, data, colors=None):
         colorMap = _get_color_map(dataClean, colors)
         sense.display_as_graph(dataClean, minMax, colorMap)
 
-    # Show sparkles? :-)
+    # Or ... display sparkles :-)
     else:
         sense.display_sparkle()
 
@@ -521,6 +527,11 @@ def init_cli_parser(appName, appVersion, setDefaults=True):
         type=int,
         default=-1,
         help='number of uploads before exiting',
+    )
+    parser.add_argument(
+        '--dmode',
+        action='store',
+        help='display mode',
     )
 
     return parser
@@ -734,16 +745,21 @@ def main(cliArgs=None):  # sourcery skip: extract-method
         # events and set 'sleep' and 'display' modes.
         appRT.add_sensor('SenseHat', f451SenseHat.SenseHat)
         appRT.sensors['SenseHat'].joystick_init(**APP_JOYSTICK_ACTIONS)
-        appRT.sensors['SenseHat'].display_init(**APP_DISPLAY_MODES)
+        appRT.sensors['SenseHat'].add_displ_modes(APP_DISPL_MODES)
         appRT.sensors['SenseHat'].update_sleep_mode(cliArgs.noLED)
         appRT.sensors['SenseHat'].displProgress = cliArgs.progress
-        appRT.sensors['SenseHat'].display_message(APP_NAME)
+        appRT.sensors['SenseHat'].display_message(APP_NAME, COLOR_LOGO_FG, COLOR_LOGO_BG)
+
+        appRT.sensors['SenseHat'].set_display_mode(
+            cliArgs.dmode or appRT.config.get(f451SenseHat.KWD_DISPLAY)
+        )
 
         # Initialize SpeedTest client and add to sensors
         appRT.add_sensor('SpeedTest', SpeedTest)
 
     except KeyboardInterrupt:
         appRT.sensors['SenseHat'].display_reset()
+        appRT.sensors['SenseHat'].display_off()
         print(f'{APP_NAME} (v{APP_VERSION}) - Session terminated by user')
         sys.exit(0)
 

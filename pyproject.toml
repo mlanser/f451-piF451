@@ -15,6 +15,9 @@ classifiers = [
 ]
 keywords = ["f451"]
 dependencies = [
+    "rich",
+    "sparklines",
+    "termcolor",
     "speedtest-cli",
     "f451-common",
     "f451-sensehat",
