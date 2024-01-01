@@ -2,11 +2,11 @@
 
 ## Overview
 
-This application is designed for the *f451 Labs piRED* and *piF451* devices which are both equipped with [Raspberry Pi Sense HAT](https://www.raspberrypi.com/documentation/accessories/sense-hat.html) add-ons. The main objective is to continously run internet speed tests using the `speedtest-cli` library and then upload the data to the [Adafruit IO service](https://io.adafruit.com).
+This application is designed for the *f451 Labs piRED* and *piF451* devices, which are both equipped with [Raspberry Pi Sense HAT](https://www.raspberrypi.com/documentation/accessories/sense-hat.html) add-ons. The main objective is continuously running internet speed tests using the `speedtest-cli` library and then upload data to the [Adafruit IO service](https://io.adafruit.com).
 
 ## Install
 
-This application is not available on PyPi. However, you can still use `pip` to install the module directly from Github (see below).
+This application is not available on PyPi. However, you can still use `pip` to install the module directly from GitHub (see below).
 
 ### Dependencies
 
@@ -16,11 +16,11 @@ This module is dependent on the following libraries:
 - [sense-hat](https://pypi.org/project/sense-hat/) — only install if you have a physical Sense HAT device
 - [adafruit-io](https://pypi.org/project/adafruit-io/) — only install if you have an account with the Adafruit IO service
 
-NOTE: You can run this app in demo mode on (almost) any device even without the Sense HAT. It will then create random numbers and can send output to the `logger` when log level is `DEBUG` or when `--debug` flag is used.
+NOTE: You can run this app in demo mode on (almost) any device, even without the Sense HAT. It will then create random numbers and can send output to the `logger` when log level is `DEBUG` or when `--debug` flag is used.
 
-### Installing from Github using `pip`
+### Installing from GitHub using `pip`
 
-You can use `pip install` to install this module directly from Github as follows:
+You can use `pip install` to install this module directly from GitHub as follows:
 
 ```bash
 $ pip install 'f451-piF451 @ git+https://github.com/mlanser/f451-piF451.git'
@@ -36,7 +36,7 @@ So, if/when I add more applications to this device, they'll also be added to thi
 
 ### Running the application
 
-The `sysmon` application is designed to run unsupervised, and it will collect and upload data until it is interrupted by some external event (e.g. keyboard interrup, process `kill` command, etc.)
+The `sysmon` application is designed to run unsupervised, and it will collect and upload data until it is interrupted by some external event (e.g. keyboard interrupt, process `kill` command, etc.)
 
 To launch this application from terminal:
 
@@ -46,7 +46,7 @@ $ nohup python -u sysmon.py > sysmon.out &
 
 This command launches the `sysmon` application in the background. The application will keep running even after the terminal window is closed. Any output will be redirected to the `sysmon.out` file.
 
-It's also possible to install this application via `pip` from Github, and one then can launch the application as follows:
+It's also possible to install this application via `pip` from GitHub, and one then can launch the application as follows:
 
 ```bash
 $ nohup sysmon > sysmon.out &
@@ -106,7 +106,7 @@ Finally you can exit the application using the `ctrl-c` command. If you use the 
 
 **NOTE: THIS IS STILL W.I.P - MORE/BETTER TEST TO COME**
 
-The tests are written for [pytest](https://docs.pytest.org/en/7.1.x/contents.html) and we use markers to separate out tests that require the actual Sense HAT hardware. Some tests do not rely on the hardware to be prexent. However, those tests rely on the `pytest-mock` module to be present.
+The tests are written for [pytest](https://docs.pytest.org/en/7.1.x/contents.html) and we use markers to separate out tests that require the actual Sense HAT hardware. Some tests do not rely on the hardware to be present. However, those tests rely on the `pytest-mock` module to be present.
 
 ```bash
 # Run all tests (except marked 'skip')
