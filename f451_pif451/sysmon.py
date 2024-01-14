@@ -601,7 +601,7 @@ def collect_data(app, data, timeCurrent, cliUI=False):
             app.logger.log_info(
                 f'Uploaded: DWN: {round(dwnld, app.ioRounding)} - UP: {round(upld, app.ioRounding)} - PING: {round(ping, app.ioRounding)}'
             )
-            app.update_upload_status(cliUI, timeCurrent, f451CLIUI.STATUS_OK)
+            app.update_upload_status(cliUI, timeCurrent, f451CLIUI.HTTP_STATUS_OK)
 
         finally:
             app.timeUpdate = timeCurrent
