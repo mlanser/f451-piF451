@@ -28,9 +28,9 @@ $ pip install 'f451-piF451 @ git+https://github.com/mlanser/f451-piF451.git'
 
 ### What's with the name '*f451-piF451*'
 
-The original idea behind this repo was to hold all application running on a particalar Raspberry Pi device — piRED — in my network. This device has a specific hardware configuration and general "purpose" (i.e. to collect and process internet speed data).
+The original idea behind this repo was to hold all applications running on a particular Raspberry Pi device — piRED — in my network. This device has a specific hardware configuration and general "purpose" (i.e. to collect and process internet speed data).
 
-So, if/when I add more applications to this device, they'll also be added to this repo and will show up as 'scripts' entry points in the `pyprojects.toml` file.
+So, if/when I add more applications to this device, they'll also be added to this repo and show up as 'scripts' entry points in the `pyprojects.toml` file.
 
 ## How to use
 
@@ -38,7 +38,7 @@ So, if/when I add more applications to this device, they'll also be added to thi
 
 The `sysmon` application is designed to run unsupervised, and it will collect and upload data until it is interrupted by some external event (e.g. keyboard interrupt, process `kill` command, etc.)
 
-To launch this application from terminal:
+To launch this application from a terminal:
 
 ```bash
 $ nohup python -u sysmon.py > sysmon.out &
@@ -46,7 +46,7 @@ $ nohup python -u sysmon.py > sysmon.out &
 
 This command launches the `sysmon` application in the background. The application will keep running even after the terminal window is closed. Any output will be redirected to the `sysmon.out` file.
 
-It's also possible to install this application via `pip` from GitHub, and one then can launch the application as follows:
+It's also possible to install this application via `pip` from GitHub, and one can then launch the application as follows:
 
 ```bash
 $ nohup sysmon > sysmon.out &
@@ -71,11 +71,11 @@ $ sysmon --progress
 $ sysmon --dmode download
 ```
 
-The format of the `settings.toml` file is straight forward and this is also where you should store Adafruit IO credentials. The `settings.toml` file only supports numbers and strings. But you define most aspects of the applications here.
+The format of the `settings.toml` file is straightforward, and this is also where you should store Adafruit IO credentials. The `settings.toml` file only supports numbers and strings. But you define most aspects of the applications here.
 
 For example, if you change the `PROGRESS` setting to 1, then the Sense HAT LED will display a progress bar indicating when the next (simulated) upload will happen.
 
-There is also a 'sleep mode' which turns off the display automatically after a certain amount of time. You can also turn on/off the LED display by pushing/tapping the joystick button (down).
+A 'sleep mode' also turns off the display automatically after a certain amount of time, and you can also turn the LED display on/off by pushing/tapping the joystick button (down).
 
 ```toml
 # File: settings.toml
@@ -87,7 +87,7 @@ SLEEP = 600     # Delay in seconds until screen is blanked
 
 Please refer to the section "*Custom application settings in SETTINGS.TOML*" below for more information on available options in the `settings.toml` file.
 
-The `sysmon` application can display live data both in the terminal and on the Sense HAT LED. If you do no want to see any output in the termin (e.g. if you want to run the application in the background), the you can start the application with the `--noCLI` flag. Similarly, the `--noLED` flag prevents any output to the Sense HAT LED.
+The `sysmon` application can display live data in the terminal and on the Sense HAT LED. If you do not want to see any output in the terminal (e.g. if you're going to run the application in the background), you can start the application with the `--noCLI` flag. Similarly, the `--noLED` flag prevents any output to the Sense HAT LED.
 
 This application offers 4 different display modes for the Sense HAT LED:
 
@@ -96,17 +96,17 @@ This application offers 4 different display modes for the Sense HAT LED:
 - *ping* — show realtime graph of ping response time
 - *sparkles* — show random pixels light up — looks great at night and lets you know the app is running 😉
 
-You can switch between display modes by pushing the Sense HAT joystick left or right, and you can rotate the display by pushing up or down. You can also turn the LED display on/off by tapping (pushing straight down) the joystick in the middle.
+You can switch between display modes by pushing the Sense HAT joystick left or right and rotating the display by pushing the joystick up or down. And again, you can turn the LED display on/off by tapping (pushing straight down) the joystick in the middle.
 
-Finally you can exit the application using the `ctrl-c` command. If you use the `--uploads N` commandline argument, then the application will stop after *N* (simulated) uploads.
+Finally, you can exit the application using the `ctrl-c` command. If you use the `--uploads N` command line argument, the application will stop after *N* (simulated) uploads.
 
-**NOTE:** It takes a bit of time to run the actual speedtest and you'll probably only want to run this every few minutes. This obvioulsy slows down the 'realtime' display. However, this application is really designed to run in the background and you'll most likely only want to see "realtime" graph data output to the terminal and/or Sense HAT LED when you're configuring and/or testing the application.
+**NOTE:** It takes a bit of time to run the actual speed test, and you'll probably only want to run this every few minutes. This obviously slows down the 'realtime' display. However, this application is really designed to run in the background, and you'll most likely only want to see "realtime" graph data output to the terminal and/or Sense HAT LED when you're configuring and/or testing the application.
 
 ## How to test
 
 **NOTE: THIS IS STILL W.I.P - MORE/BETTER TEST TO COME**
 
-The tests are written for [pytest](https://docs.pytest.org/en/7.1.x/contents.html) and we use markers to separate out tests that require the actual Sense HAT hardware. Some tests do not rely on the hardware to be present. However, those tests rely on the `pytest-mock` module to be present.
+The tests are written for [pytest](https://docs.pytest.org/en/7.1.x/contents.html), and we use markers to separate out tests that require the actual Sense HAT hardware. Some tests do not rely on the hardware to be present. However, those tests rely on the `pytest-mock` module to be present.
 
 ```bash
 # Run all tests (except marked 'skip')
@@ -121,9 +121,9 @@ $ pytest -m "not hardware"
 
 ## Custom application settings in SETTINGS.TOML
 
-The 'settings.toml' file holds various custom application settings and secrets (e.g. Adafruit IO keys, etc.) and this file should **NOT** be included in 'git' commits.
+The 'settings.toml' file holds various custom application settings and secrets (e.g. Adafruit IO keys, etc.), and this file should **NOT** be included in 'git' commits.
 
-It is recommended to copy the '*settings.example*' to '*settings.toml*' and then customize the values in '*settings.toml*' as nedeed for the specific device that the application is running on.
+It is recommended to copy the '*settings.example*' to '*settings.toml*' and then customize the values in '*settings.toml*' as needed for the specific device that the application is running on.
 
 ### Adafruit IO settings
 
